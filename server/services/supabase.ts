@@ -89,11 +89,23 @@ export class SupabaseStorageService {
 
   async getBucketSize(): Promise<{ used: number; total: number }> {
     try {
-      // This method previously referenced an undefined supabase client; return a static limit
+      const { data, error } = await this.adminClient.storage
+        .from(this.bucketName)
+        .list("uploads", {
+          limit: 10000, // Adjust as needed, may need pagination for more files
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      const usedSize = data.reduce((acc, file) => acc + (file.metadata?.size ?? 0), 0);
+
       const storageLimit = 1 * 1024 * 1024 * 1024; // 1GB in bytes
-      return { used: 0, total: storageLimit };
+      return { used: usedSize, total: storageLimit };
     } catch (error) {
       console.error('Failed to get bucket size:', error);
+      // Fallback to a default value in case of an error
       return { used: 0, total: 1 * 1024 * 1024 * 1024 };
     }
   }
