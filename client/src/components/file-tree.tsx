@@ -12,7 +12,6 @@ import {
   ChevronRight,
   ChevronDown 
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import type { File as FileType, Folder as FolderType } from "@shared/schema";
 
 interface FileTreeProps {
