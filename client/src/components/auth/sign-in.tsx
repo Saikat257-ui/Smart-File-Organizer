@@ -54,7 +54,7 @@ export function SignIn({ onSuccess }: SignInProps) {
           Welcome back
         </CardTitle>
         <CardDescription className="text-gray-600">
-          Sign in to your DriveVault account
+          Sign in to your account
         </CardDescription>
       </CardHeader>
       

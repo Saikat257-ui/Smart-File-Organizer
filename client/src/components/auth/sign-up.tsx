@@ -108,7 +108,7 @@ export function SignUp({ onSuccess }: SignUpProps) {
           Create account
         </CardTitle>
         <CardDescription className="text-gray-600">
-          Join DriveVault and organize your files with AI
+          Join Smart File Manager and organize your files with AI
         </CardDescription>
       </CardHeader>
       

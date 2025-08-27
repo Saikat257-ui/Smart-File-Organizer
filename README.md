@@ -1,4 +1,4 @@
-# Smart File Organizer: File Management Made Easy
+# Smart File Manager: File Management Made Easy
 
 This project is an exploration into building an "AI-first" application. The goal was to create a mini Google Drive clone that leverages AI to automate the tedious parts of file organization. It's a demonstration of how AI can be a core part of the user experience, not just a development tool.
 
