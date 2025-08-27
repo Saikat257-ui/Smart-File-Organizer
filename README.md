@@ -208,7 +208,7 @@ This project is configured for deployment on Render. The `render.yaml` file in t
 
 ## 🧠 AI in Development
 
-AI was not just a feature in this project; it was also a co-pilot during development. I used GitHub Copilot and other AI tools to:
+AI was not just a feature in this project; it was also a co-pilot during development. I used ChatGPT only to:
 
 *   **Generate boilerplate code:** AI helped to quickly scaffold components, server routes, and database schemas.
 *   **Debug and troubleshoot:** AI was useful for identifying and fixing bugs, especially in complex code.
