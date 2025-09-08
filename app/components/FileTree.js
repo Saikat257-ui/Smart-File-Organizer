@@ -80,39 +80,47 @@ const FileItem = ({ file, level = 0, selectedFiles, onSelectionChange, expandedF
       <motion.div
         initial={{ opacity: 0, x: -10 }}
         animate={{ opacity: 1, x: 0 }}
-        className={`file-tree-item ${isSelected ? 'bg-blue-100 border border-blue-300' : 'hover:bg-gray-100'}`}
+        className={`file-tree-item ${isSelected ? 'bg-blue-100 border border-blue-300' : 'hover:bg-gray-100'} p-2 rounded-md cursor-pointer`}
         style={{ paddingLeft: `${level * 20 + 8}px` }}
       >
-        <div className="flex items-center space-x-2 flex-1" onClick={handleToggle}>
+        <div className="flex items-center space-x-2 min-w-0" onClick={handleToggle}>
           {isFolder && (
             <motion.div
               animate={{ rotate: isExpanded ? 90 : 0 }}
               transition={{ duration: 0.2 }}
+              className="flex-shrink-0"
             >
               <FaChevronRight className="text-gray-600 text-xs" />
             </motion.div>
           )}
           
-          <Icon className={`text-lg ${
+          <Icon className={`text-lg flex-shrink-0 ${
             isFolder ? (isExpanded ? 'text-yellow-600' : 'text-blue-600') : 'text-gray-600'
           }`} />
           
-          <span className="text-gray-800 text-sm flex-1 truncate">{file.name}</span>
-          
-          <div className="flex items-center space-x-2">
-            {formatFileSize(file.size) && (
-              <span className="text-xs text-gray-500">
-                {formatFileSize(file.size)}
-              </span>
-            )}
+          <div className="flex-1 min-w-0 flex items-center justify-between">
+            <span 
+              className="text-gray-800 text-sm truncate pr-2" 
+              title={file.name}
+            >
+              {file.name}
+            </span>
             
-            <input
-              type="checkbox"
-              checked={isSelected}
-              onChange={handleSelect}
-              className="w-4 h-4 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500"
-              onClick={(e) => e.stopPropagation()}
-            />
+            <div className="flex items-center space-x-2 flex-shrink-0">
+              {formatFileSize(file.size) && (
+                <span className="text-xs text-gray-500 whitespace-nowrap">
+                  {formatFileSize(file.size)}
+                </span>
+              )}
+              
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={handleSelect}
+                className="w-4 h-4 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500 flex-shrink-0"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
           </div>
         </div>
       </motion.div>
