@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  
+  body {
+    @apply bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 min-h-screen;
+  }
+}
+
+@layer components {
+  .glassmorphism {
+    @apply backdrop-blur-md bg-white/10 border border-white/20 rounded-xl shadow-xl;
+  }
+  
+  .glassmorphism-card {
+    @apply backdrop-blur-sm bg-white/5 border border-white/10 rounded-lg shadow-lg hover:bg-white/10 transition-all duration-300;
+  }
+  
+  .gradient-text {
+    @apply bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent;
+  }
+  
+  .btn-primary {
+    @apply bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold py-3 px-6 rounded-lg shadow-lg transform hover:scale-105 transition-all duration-200;
+  }
+  
+  .btn-secondary {
+    @apply glassmorphism text-white font-medium py-2 px-4 rounded-lg hover:bg-white/20 transition-all duration-200;
+  }
+  
+  .file-tree-item {
+    @apply flex items-center space-x-2 p-2 rounded-lg hover:bg-white/10 cursor-pointer transition-all duration-200;
+  }
+  
+  .status-log {
+    @apply glassmorphism p-4 max-h-64 overflow-y-auto font-mono text-sm;
+  }
+}
