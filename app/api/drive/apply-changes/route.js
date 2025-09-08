@@ -3,6 +3,44 @@ import { getServerSession } from 'next-auth'
 import { google } from 'googleapis'
 import { authOptions } from '../../auth/[...nextauth]/route'
 
+// Helper function to create folder structure
+async function createFolderStructure(drive, folderPath, parentId = 'root') {
+  if (!folderPath || folderPath === '/') {
+    return parentId
+  }
+  
+  // Remove leading/trailing slashes and split path
+  const pathParts = folderPath.replace(/^\/+|\/+$/g, '').split('/')
+  let currentParentId = parentId
+  
+  for (const folderName of pathParts) {
+    if (!folderName) continue
+    
+    // Check if folder already exists
+    const existingFolders = await drive.files.list({
+      q: `name='${folderName}' and parents in '${currentParentId}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+      fields: 'files(id, name)'
+    })
+    
+    if (existingFolders.data.files.length > 0) {
+      currentParentId = existingFolders.data.files[0].id
+    } else {
+      // Create new folder
+      const newFolder = await drive.files.create({
+        resource: {
+          name: folderName,
+          mimeType: 'application/vnd.google-apps.folder',
+          parents: [currentParentId]
+        },
+        fields: 'id'
+      })
+      currentParentId = newFolder.data.id
+    }
+  }
+  
+  return currentParentId
+}
+
 export async function POST(request) {
   try {
     const session = await getServerSession(authOptions)
@@ -28,38 +66,73 @@ export async function POST(request) {
     for (const change of changes) {
       try {
         const updateData = {}
+        let targetFolderId = null
+        
+        // Handle folder moving - create folder structure if needed
+        if (change.suggestedPath) {
+          try {
+            targetFolderId = await createFolderStructure(drive, change.suggestedPath)
+            
+            // Get current parents
+            const file = await drive.files.get({
+              fileId: change.fileId,
+              fields: 'parents'
+            })
+            
+            const previousParents = file.data.parents ? file.data.parents.join(',') : ''
+            
+            updateData.addParents = targetFolderId
+            updateData.removeParents = previousParents
+          } catch (folderError) {
+            console.error(`Error creating folder structure for ${change.suggestedPath}:`, folderError)
+            results.push({
+              fileId: change.fileId,
+              success: false,
+              error: `Failed to create folder structure: ${folderError.message}`,
+              change: change
+            })
+            continue
+          }
+        }
         
         // Handle file renaming
         if (change.suggestedName && change.suggestedName !== change.originalName) {
           updateData.name = change.suggestedName
         }
         
-        // Handle folder moving
-        if (change.suggestedPath && change.targetFolderId) {
-          // Get current parents
-          const file = await drive.files.get({
-            fileId: change.fileId,
-            fields: 'parents'
-          })
-          
-          const previousParents = file.data.parents ? file.data.parents.join(',') : ''
-          
-          updateData.addParents = change.targetFolderId
-          updateData.removeParents = previousParents
-        }
-        
         if (Object.keys(updateData).length > 0) {
-          await drive.files.update({
+          const updateParams = {
             fileId: change.fileId,
-            resource: updateData.name ? { name: updateData.name } : {},
-            addParents: updateData.addParents,
-            removeParents: updateData.removeParents
-          })
+            fields: 'id, name, parents'
+          }
+          
+          // Add resource for name change
+          if (updateData.name) {
+            updateParams.resource = { name: updateData.name }
+          }
+          
+          // Add parent changes
+          if (updateData.addParents) {
+            updateParams.addParents = updateData.addParents
+          }
+          if (updateData.removeParents) {
+            updateParams.removeParents = updateData.removeParents
+          }
+          
+          const updatedFile = await drive.files.update(updateParams)
           
           appliedCount++
           results.push({
             fileId: change.fileId,
             success: true,
+            change: change,
+            updatedFile: updatedFile.data
+          })
+        } else {
+          results.push({
+            fileId: change.fileId,
+            success: false,
+            error: 'No changes to apply',
             change: change
           })
         }

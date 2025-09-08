@@ -6,6 +6,10 @@ import { authOptions } from '../../auth/[...nextauth]/route'
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 
+// Simple in-memory rate limiter
+let lastRequestTime = 0;
+const COOLDOWN_PERIOD = 5000; // 5 seconds
+
 async function getFileContent(drive, fileId, mimeType) {
   try {
     if (mimeType === 'application/vnd.google-apps.document') {
@@ -85,6 +89,12 @@ Respond with a JSON array of suggestions. Each suggestion should have:
 
 export async function POST(request) {
   try {
+    const now = Date.now();
+    if (now - lastRequestTime < COOLDOWN_PERIOD) {
+      return NextResponse.json({ error: 'Too Many Requests' }, { status: 429 });
+    }
+    lastRequestTime = now;
+    
     const session = await getServerSession(authOptions)
     
     if (!session?.accessToken) {
