@@ -163,6 +163,30 @@ export default function Home() {
             </div>
           </div>
         </motion.div>
+
+        {/* Footer */}
+        <motion.footer
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 1.2 }}
+          className="mt-20 pt-12 border-t border-gray-200"
+        >
+          <div className="text-center space-y-4">
+            <div className="flex justify-center space-x-8 text-gray-600">
+              <a 
+                href="/privacy-policy" 
+                className="hover:text-blue-600 transition-colors duration-200 text-lg"
+              >
+                Privacy Policy
+              </a>
+              <span className="text-gray-400">|</span>
+              <span className="text-lg">Last updated: August 31, 2025</span>
+            </div>
+            <p className="text-gray-500 text-lg">
+              © 2025 Smart File Manager. All rights reserved.
+            </p>
+          </div>
+        </motion.footer>
       </div>
     </div>
   )
