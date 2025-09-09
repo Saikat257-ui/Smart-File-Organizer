@@ -117,7 +117,52 @@ async function generateAIResponse(prompt, fileAnalysis) {
   
   const files = fileAnalysis.filter(f => !f.error)
   
-  // Analyze content similarity
+  // Check for explicit folder creation command
+  const createFolderMatch = prompt.toLowerCase().match(/create (?:a )?folder (?:called |named )?['""]?([^'""\n]+)['""]?/i)
+  
+  if (createFolderMatch) {
+    // User explicitly specified a folder name
+    const folderName = createFolderMatch[1].trim()
+    const actions = []
+    
+    // Create the specified folder
+    actions.push({
+      type: 'create_folder',
+      name: folderName,
+      reasoning: `Creating folder "${folderName}" as explicitly requested`
+    })
+    
+    // Move all selected files to this folder
+    for (const file of files) {
+      actions.push({
+        type: 'move_file',
+        fileId: file.id,
+        fileName: file.name,
+        targetFolder: folderName,
+        reasoning: `Moving to folder "${folderName}" as requested`
+      })
+    }
+    
+    return {
+      summary: `Creating folder "${folderName}" and moving ${files.length} files as requested.`,
+      contentGroups: [{
+        id: 'explicit_group',
+        files: files,
+        commonThemes: ['user-specified'],
+        suggestedFolder: folderName,
+        reasoning: 'User-specified folder name'
+      }],
+      folderStructure: [{
+        name: folderName,
+        fileCount: files.length,
+        themes: ['user-specified']
+      }],
+      actions: actions,
+      reasoning: `Based on your request to create a folder named "${folderName}", I will create this folder and move all selected files into it.`
+    }
+  }
+  
+  // If no explicit folder name was given, fall back to content analysis
   const contentGroups = analyzeContentSimilarity(files)
   
   // Generate folder structure based on analysis
@@ -125,15 +170,19 @@ async function generateAIResponse(prompt, fileAnalysis) {
   
   // Create actions for organizing files
   const actions = []
+  const createdFolders = new Set()
   
   for (const group of contentGroups) {
-    // Create folder action
+    // Create folder action - only if it hasn't been created yet
     const folderName = group.suggestedFolder
-    actions.push({
-      type: 'create_folder',
-      name: folderName,
-      reasoning: group.reasoning
-    })
+    if (!createdFolders.has(folderName)) {
+      actions.push({
+        type: 'create_folder',
+        name: folderName,
+        reasoning: group.reasoning
+      })
+      createdFolders.add(folderName)
+    }
     
     // Move files actions
     for (const file of group.files) {

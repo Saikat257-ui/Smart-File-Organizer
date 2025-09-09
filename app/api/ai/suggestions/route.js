@@ -161,11 +161,22 @@ Return your response as a valid JSON array.`
     
     // Parse AI response
     let suggestions = []
+    const uniqueFolders = new Set()
     try {
       // Extract JSON from the response (in case there's extra text)
       const jsonMatch = aiResponse.match(/\[[\s\S]*\]/)
       if (jsonMatch) {
-        suggestions = JSON.parse(jsonMatch[0])
+        const parsedSuggestions = JSON.parse(jsonMatch[0])
+        // Filter out duplicate folder creations while preserving file moves
+        suggestions = parsedSuggestions.filter(suggestion => {
+          if (suggestion.type === 'create_folder') {
+            if (uniqueFolders.has(suggestion.name)) {
+              return false
+            }
+            uniqueFolders.add(suggestion.name)
+          }
+          return true
+        })
       } else {
         // Fallback: create basic suggestions
         suggestions = fileDetails.map(file => ({
