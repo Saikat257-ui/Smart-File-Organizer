@@ -34,10 +34,11 @@ export async function POST(request) {
     // Create folders
     for (const action of folderActions) {
       try {
-        // Check if folder already exists
+        // Check if folder already exists in the same parent folder
+        const parentQuery = action.parentFolderId ? ` and '${action.parentFolderId}' in parents` : ''
         const existingFolders = await drive.files.list({
-          q: `name='${action.name}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-          fields: 'files(id,name)'
+          q: `name='${action.name}' and mimeType='application/vnd.google-apps.folder' and trashed=false${parentQuery}`,
+          fields: 'files(id,name,parents)'
         })
 
         let folderId
@@ -54,12 +55,13 @@ export async function POST(request) {
           // Create new folder
           const folderMetadata = {
             name: action.name,
-            mimeType: 'application/vnd.google-apps.folder'
+            mimeType: 'application/vnd.google-apps.folder',
+            parents: action.parentFolderId ? [action.parentFolderId] : undefined
           }
 
           const folder = await drive.files.create({
             resource: folderMetadata,
-            fields: 'id,name'
+            fields: 'id,name,parents'
           })
 
           folderId = folder.data.id

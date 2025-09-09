@@ -116,9 +116,59 @@ async function generateAIResponse(prompt, fileAnalysis) {
   // In a real implementation, you would use OpenAI API, Google AI, or another LLM service
   
   const files = fileAnalysis.filter(f => !f.error)
+  const promptLower = prompt.toLowerCase()
+  
+  // Check for explicit move command first
+  const moveToFolderMatch = promptLower.match(/move.*(?:to|into)(?: a)? folder (?:called |named )?['""]?([^'""\n]+)['""]?/i) ||
+                           promptLower.match(/move.*(?:to|into) ['""]?([^'""\n]+)['""]? folder/i)
+  
+  if (moveToFolderMatch) {
+    const folderName = moveToFolderMatch[1].trim()
+    const actions = []
+    
+    // Get parent folder ID from the first file (assuming all files are in the same folder)
+    const parentFolderId = files[0]?.parents?.[0]
+    
+    // Create the specified folder
+    actions.push({
+      type: 'create_folder',
+      name: folderName,
+      parentFolderId: parentFolderId, // Add parent folder ID to create folder in the same location
+      reasoning: `Creating folder "${folderName}" in the current directory as explicitly requested for file movement`
+    })
+    
+    // Move all selected files to this folder
+    for (const file of files) {
+      actions.push({
+        type: 'move_file',
+        fileId: file.id,
+        fileName: file.name,
+        targetFolder: folderName,
+        reasoning: `Moving to folder "${folderName}" in the current directory as explicitly requested`
+      })
+    }
+    
+    return {
+      summary: `Moving ${files.length} files to "${folderName}" folder as requested.`,
+      contentGroups: [{
+        id: 'explicit_move_group',
+        files: files,
+        commonThemes: ['user-specified-move'],
+        suggestedFolder: folderName,
+        reasoning: 'Moving files to user-specified folder'
+      }],
+      folderStructure: [{
+        name: folderName,
+        fileCount: files.length,
+        themes: ['user-specified']
+      }],
+      actions: actions,
+      reasoning: `Based on your request to move files to a folder named "${folderName}", I will create this folder (if it doesn't exist) and move all selected files into it.`
+    }
+  }
   
   // Check for explicit folder creation command
-  const createFolderMatch = prompt.toLowerCase().match(/create (?:a )?folder (?:called |named )?['""]?([^'""\n]+)['""]?/i)
+  const createFolderMatch = promptLower.match(/create (?:a )?folder (?:called |named )?['""]?([^'""\n]+)['""]?/i)
   
   if (createFolderMatch) {
     // User explicitly specified a folder name
