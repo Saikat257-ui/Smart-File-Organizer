@@ -7,12 +7,23 @@ export async function GET(request) {
   try {
     const session = await getServerSession(authOptions)
     
-    if (!session?.accessToken) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session?.accessToken || session.error === 'RefreshAccessTokenError') {
+      return NextResponse.json({ 
+        error: 'Authentication failed', 
+        message: session.error === 'RefreshAccessTokenError' 
+          ? 'Your session has expired. Please sign in again.' 
+          : 'Not authenticated'
+      }, { status: 401 })
     }
 
-    const auth = new google.auth.OAuth2()
-    auth.setCredentials({ access_token: session.accessToken })
+    const auth = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET
+    )
+    auth.setCredentials({ 
+      access_token: session.accessToken,
+      refresh_token: session.refreshToken
+    })
     
     const drive = google.drive({ version: 'v3', auth })
     

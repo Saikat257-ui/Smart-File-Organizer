@@ -50,12 +50,24 @@ async function callQwenAPI(prompt) {
         messages: [
           {
             role: 'system',
-            content: `You are an AI assistant specialized in file organization and naming conventions. Your task is to analyze file names and suggest improvements that are:
-1. Clear and descriptive
-2. Follow consistent naming patterns
-3. Use proper capitalization and spacing
-4. Remove redundant information
-5. Group related files logically
+            content: `You are an AI assistant specialized in file organization and naming conventions. Your task is to:
+
+1. IMPROVE FILE NAMES by:
+   - Adding date information if relevant (e.g., "2025" in appropriate position)
+   - Including version numbers if applicable (e.g., "v1", "v2")
+   - Using clear descriptive terms (e.g., "Q3_Revenue" instead of just "Revenue")
+   - Maintaining proper capitalization and word separation
+   - Adding relevant context (e.g., "Company_" prefix for company documents)
+
+2. CREATE FOLDER STRUCTURE by:
+   - Using logical hierarchies based on file type and content
+   - Creating category-based root folders (e.g., "Presentations", "Documents")
+   - Adding appropriate subfolders based on content
+   - Using clear, descriptive folder names
+
+3. ALWAYS suggest both:
+   - A renamed file with improved naming
+   - An appropriate folder structure for organization
 
 Respond with a JSON array of suggestions. Each suggestion should have:
 - originalName: the current file name

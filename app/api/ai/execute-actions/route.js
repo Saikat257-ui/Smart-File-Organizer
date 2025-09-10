@@ -52,9 +52,9 @@ export async function POST(request) {
             folderId: folderId
           })
         } else {
-          // Create new folder
+          // Create new folder with strictly preserved case
           const folderMetadata = {
-            name: action.name,
+            name: String(action.name).valueOf(), // Force exact string representation to preserve case
             mimeType: 'application/vnd.google-apps.folder',
             parents: action.parentFolderId ? [action.parentFolderId] : undefined
           }

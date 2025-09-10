@@ -116,25 +116,26 @@ async function generateAIResponse(prompt, fileAnalysis) {
   // In a real implementation, you would use OpenAI API, Google AI, or another LLM service
   
   const files = fileAnalysis.filter(f => !f.error)
-  const promptLower = prompt.toLowerCase()
+  // Don't convert prompt to lowercase to preserve case sensitivity
   
   // Check for explicit move command first
-  const moveToFolderMatch = promptLower.match(/move.*(?:to|into)(?: a)? folder (?:called |named )?['""]?([^'""\n]+)['""]?/i) ||
-                           promptLower.match(/move.*(?:to|into) ['""]?([^'""\n]+)['""]? folder/i)
+  const moveToFolderMatch = prompt.match(/move.*(?:to|into)(?: a)? folder (?:called |named )?['""]?([^'""\n]+)['""]?/i) ||
+                           prompt.match(/move.*(?:to|into) ['""]?([^'""\n]+)['""]? folder/i)
   
   if (moveToFolderMatch) {
+    // Preserve the exact case of the folder name from the original prompt
     const folderName = moveToFolderMatch[1].trim()
     const actions = []
     
     // Get parent folder ID from the first file (assuming all files are in the same folder)
     const parentFolderId = files[0]?.parents?.[0]
     
-    // Create the specified folder
+    // Create the specified folder with exact case preservation
     actions.push({
       type: 'create_folder',
-      name: folderName,
-      parentFolderId: parentFolderId, // Add parent folder ID to create folder in the same location
-      reasoning: `Creating folder "${folderName}" in the current directory as explicitly requested for file movement`
+      name: folderName, // Using the exact case from the original match
+      parentFolderId: parentFolderId,
+      reasoning: `Creating folder "${folderName}" with preserved case in the current directory as explicitly requested for file movement`
     })
     
     // Move all selected files to this folder
@@ -168,10 +169,10 @@ async function generateAIResponse(prompt, fileAnalysis) {
   }
   
   // Check for explicit folder creation command
-  const createFolderMatch = promptLower.match(/create (?:a )?folder (?:called |named )?['""]?([^'""\n]+)['""]?/i)
+  const createFolderMatch = prompt.match(/create (?:a )?folder (?:called |named )?['""]?([^'""\n]+)['""]?/i)
   
   if (createFolderMatch) {
-    // User explicitly specified a folder name
+    // User explicitly specified a folder name - preserve exact case
     const folderName = createFolderMatch[1].trim()
     const actions = []
     
@@ -262,6 +263,10 @@ function analyzeContentSimilarity(files) {
   for (const file of files) {
     if (processedFiles.has(file.id)) continue
     
+    // Generate improved file name suggestion
+    const improvedName = generateImprovedFileName(file)
+    file.suggestedName = improvedName
+    
     const similarFiles = [file]
     processedFiles.add(file.id)
     
@@ -271,6 +276,8 @@ function analyzeContentSimilarity(files) {
       
       const similarity = calculateSimilarity(file, otherFile)
       if (similarity > 0.3) { // 30% similarity threshold
+        // Also generate improved name for similar files
+        otherFile.suggestedName = generateImprovedFileName(otherFile)
         similarFiles.push(otherFile)
         processedFiles.add(otherFile.id)
       }
@@ -360,20 +367,32 @@ function extractCommonThemes(files) {
 function generateFolderName(files, themes) {
   if (themes.length === 0) return 'Miscellaneous'
   
-  // Create meaningful folder names
-  const primaryTheme = themes[0]
+  // Create hierarchical folder names based on file type and content
+  const fileTypes = new Set(files.map(f => {
+    if (f.mimeType.includes('presentation')) return 'Presentations'
+    if (f.mimeType.includes('spreadsheet')) return 'Spreadsheets'
+    if (f.mimeType.includes('document')) return 'Documents'
+    if (f.mimeType.includes('image')) return 'Images'
+    if (f.mimeType.includes('video')) return 'Videos'
+    if (f.mimeType.includes('audio')) return 'Audio'
+    return 'Other'
+  }))
+
+  // Get the primary file type
+  const primaryType = Array.from(fileTypes)[0]
   
-  if (primaryTheme === 'images') return 'Images & Media'
-  if (primaryTheme === 'documents') return 'Documents'
-  if (primaryTheme === 'spreadsheets') return 'Spreadsheets & Data'
-  if (primaryTheme === 'presentations') return 'Presentations'
-  if (primaryTheme === 'videos') return 'Videos'
-  if (primaryTheme === 'audio') return 'Audio Files'
+  // Get content-based subfolder from themes
+  const contentTheme = themes.find(t => 
+    !['images', 'documents', 'spreadsheets', 'presentations', 'videos', 'audio'].includes(t.toLowerCase())
+  )
+
+  // Create a hierarchical path if we have both type and content theme
+  if (contentTheme && primaryType) {
+    return `${primaryType}/${contentTheme.charAt(0).toUpperCase() + contentTheme.slice(1)}`
+  }
   
-  // Use the most common word/theme
-  return themes.slice(0, 2).map(t => 
-    t.charAt(0).toUpperCase() + t.slice(1)
-  ).join(' & ') + ' Files'
+  // Fallback to just the type if no content theme
+  return primaryType
 }
 
 function generateFolderStructure(groups) {
@@ -382,6 +401,38 @@ function generateFolderStructure(groups) {
     fileCount: group.files.length,
     themes: group.commonThemes
   }))
+}
+
+function generateImprovedFileName(file) {
+  const name = file.name
+  const nameParts = name.split('.')
+  const extension = nameParts.pop()
+  let baseName = nameParts.join('.')
+  
+  // Extract date if present
+  const currentYear = new Date().getFullYear()
+  const hasYear = baseName.includes(currentYear.toString())
+  
+  // Add context based on file type
+  if (file.mimeType.includes('presentation')) {
+    if (!hasYear) {
+      baseName = `${baseName}_${currentYear}`
+    }
+    // Add prefix for presentation types
+    if (!baseName.toLowerCase().includes('pitch') && baseName.toLowerCase().includes('startup')) {
+      baseName = `Pitch_${baseName}`
+    }
+  }
+  
+  // Replace underscores with dashes for readability
+  baseName = baseName.replace(/_/g, '-')
+  
+  // Add version if not present
+  if (!baseName.match(/v\d+/i) && !baseName.match(/version-\d+/i)) {
+    baseName = `${baseName}-v1`
+  }
+  
+  return `${baseName}.${extension}`
 }
 
 function generateReasoningText(prompt, groups) {
