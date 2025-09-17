@@ -68,10 +68,10 @@ export async function POST(request) {
         const updateData = {}
         let targetFolderId = null
         
-        // Handle folder moving - create folder structure if needed
-        if (change.suggestedPath) {
+        // Handle folder moving - only if folder creation was approved
+        if (change.suggestedFolder && change.includeFolderCreation) {
           try {
-            targetFolderId = await createFolderStructure(drive, change.suggestedPath)
+            targetFolderId = await createFolderStructure(drive, change.suggestedFolder)
             
             // Get current parents
             const file = await drive.files.get({
@@ -84,7 +84,7 @@ export async function POST(request) {
             updateData.addParents = targetFolderId
             updateData.removeParents = previousParents
           } catch (folderError) {
-            console.error(`Error creating folder structure for ${change.suggestedPath}:`, folderError)
+            console.error(`Error creating folder structure for ${change.suggestedFolder}:`, folderError)
             results.push({
               fileId: change.fileId,
               success: false,

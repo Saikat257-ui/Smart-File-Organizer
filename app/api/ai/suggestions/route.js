@@ -50,32 +50,20 @@ async function callQwenAPI(prompt) {
         messages: [
           {
             role: 'system',
-            content: `You are an AI assistant specialized in file organization and naming conventions. Your task is to:
+            content: `You are an AI assistant specialized in file organization and naming conventions. For each file, provide ONE suggestion that includes both renaming and optional folder organization.
 
-1. IMPROVE FILE NAMES by:
-   - Adding date information if relevant (e.g., "2025" in appropriate position)
-   - Including version numbers if applicable (e.g., "v1", "v2")
-   - Using clear descriptive terms (e.g., "Q3_Revenue" instead of just "Revenue")
-   - Maintaining proper capitalization and word separation
-   - Adding relevant context (e.g., "Company_" prefix for company documents)
+For each file, suggest:
+1. An improved file name with better naming conventions
+2. An optional folder structure for better organization
 
-2. CREATE FOLDER STRUCTURE by:
-   - Using logical hierarchies based on file type and content
-   - Creating category-based root folders (e.g., "Presentations", "Documents")
-   - Adding appropriate subfolders based on content
-   - Using clear, descriptive folder names
-
-3. ALWAYS suggest both:
-   - A renamed file with improved naming
-   - An appropriate folder structure for organization
-
-Respond with a JSON array of suggestions. Each suggestion should have:
-- originalName: the current file name
-- suggestedName: your improved name suggestion
-- reasoning: brief explanation of the change
-- type: "rename" or "organize"
-- suggestedPath: if organizing, suggest a folder path
-- confidence: number 0-1 indicating confidence in suggestion`
+Respond with a JSON array where each object represents ONE file with:
+- fileId: the file ID
+- originalName: current file name
+- suggestedName: improved file name
+- renameReasoning: explanation for the rename
+- suggestedFolder: optional folder path for organization (can be null)
+- folderReasoning: explanation for folder suggestion (can be null)
+- confidence: number 0-1 indicating confidence`
           },
           {
             role: 'user',
@@ -149,7 +137,7 @@ export async function POST(request) {
     }
     
     // Create prompt for AI
-    const prompt = `Analyze these files and suggest better names and organization:
+    const prompt = `Analyze these files and provide ONE suggestion per file for renaming and optional folder organization:
 
 ${fileDetails.map(file => `
 File: ${file.name}
@@ -159,36 +147,37 @@ Modified: ${file.modifiedTime}
 ${file.content ? `Content preview: ${file.content}` : ''}
 ---`).join('\n')}
 
-Please provide suggestions for renaming and organizing these files into a logical folder structure. Consider:
-1. File content and purpose
-2. Creation dates and patterns
-3. File types and relationships
-4. Professional naming conventions
-5. Logical grouping opportunities
+For each file, provide exactly ONE suggestion object with:
+- fileId: "${fileDetails.map(f => f.id).join('" or "')}"
+- originalName: current file name
+- suggestedName: improved file name
+- renameReasoning: why this name is better
+- suggestedFolder: folder path (can be null if no organization needed)
+- folderReasoning: why this folder structure (can be null)
+- confidence: 0-1 score
 
-Return your response as a valid JSON array.`
+Return a JSON array with exactly ${fileDetails.length} objects, one per file.`
 
     // Call Qwen AI API
     const aiResponse = await callQwenAPI(prompt)
     
     // Parse AI response
     let suggestions = []
-    const uniqueFolders = new Set()
     try {
       // Extract JSON from the response (in case there's extra text)
       const jsonMatch = aiResponse.match(/\[[\s\S]*\]/)
       if (jsonMatch) {
         const parsedSuggestions = JSON.parse(jsonMatch[0])
-        // Filter out duplicate folder creations while preserving file moves
-        suggestions = parsedSuggestions.filter(suggestion => {
-          if (suggestion.type === 'create_folder') {
-            if (uniqueFolders.has(suggestion.name)) {
-              return false
-            }
-            uniqueFolders.add(suggestion.name)
-          }
-          return true
-        })
+        suggestions = parsedSuggestions.map(suggestion => ({
+          id: uuidv4(),
+          fileId: suggestion.fileId || fileDetails.find(f => f.name === suggestion.originalName)?.id,
+          originalName: suggestion.originalName,
+          suggestedName: suggestion.suggestedName,
+          renameReasoning: suggestion.renameReasoning || suggestion.reasoning,
+          suggestedFolder: suggestion.suggestedFolder || null,
+          folderReasoning: suggestion.folderReasoning || null,
+          confidence: suggestion.confidence || 0.7
+        }))
       } else {
         // Fallback: create basic suggestions
         suggestions = fileDetails.map(file => ({
@@ -196,8 +185,9 @@ Return your response as a valid JSON array.`
           fileId: file.id,
           originalName: file.name,
           suggestedName: file.name.replace(/[_-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-          reasoning: 'Improved capitalization and spacing',
-          type: 'rename',
+          renameReasoning: 'Improved capitalization and spacing',
+          suggestedFolder: null,
+          folderReasoning: null,
           confidence: 0.7
         }))
       }
@@ -209,18 +199,12 @@ Return your response as a valid JSON array.`
         fileId: file.id,
         originalName: file.name,
         suggestedName: file.name,
-        reasoning: 'AI parsing failed, no changes suggested',
-        type: 'rename',
+        renameReasoning: 'AI parsing failed, no changes suggested',
+        suggestedFolder: null,
+        folderReasoning: null,
         confidence: 0.5
       }))
     }
-    
-    // Add IDs and file IDs to suggestions
-    suggestions = suggestions.map(suggestion => ({
-      ...suggestion,
-      id: suggestion.id || uuidv4(),
-      fileId: suggestion.fileId || fileDetails.find(f => f.name === suggestion.originalName)?.id
-    }))
     
     return NextResponse.json({
       success: true,

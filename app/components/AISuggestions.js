@@ -2,9 +2,9 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { FaCheck, FaTimes, FaArrowRight, FaBrain, FaSpinner } from 'react-icons/fa'
+import { FaCheck, FaTimes, FaArrowRight, FaBrain, FaSpinner, FaFolder } from 'react-icons/fa'
 
-const SuggestionCard = ({ suggestion, onApprove, onReject, approved, rejected }) => {
+const SuggestionCard = ({ suggestion, onApprove, onReject, onFolderApprove, onFolderReject, approved, rejected, folderApproved, folderRejected }) => {
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -19,38 +19,66 @@ const SuggestionCard = ({ suggestion, onApprove, onReject, approved, rejected })
       <div className="space-y-4">
         {/* File Info */}
         <div className="text-sm text-gray-600">
-          <span className="font-medium text-gray-800">{suggestion.type}</span> • <span className="break-all text-gray-700">{suggestion.originalName}</span>
+          <span className="font-medium text-gray-800">File Rename</span> • <span className="break-all text-gray-700">{suggestion.originalName}</span>
         </div>
         
-        {/* Suggestion */}
+        {/* Rename Suggestion */}
         <div className="space-y-2">
-          <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">Original</div>
+          <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">Original Name</div>
           <div className="text-sm text-gray-700 break-all bg-gray-100 p-3 rounded-md border border-gray-200">{suggestion.originalName}</div>
           
           <div className="flex justify-center">
             <FaArrowRight className="text-gray-500 text-sm" />
           </div>
           
-          <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">Suggested</div>
+          <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">Suggested Name</div>
           <div className="text-sm text-gray-800 font-medium break-all bg-blue-100 p-3 rounded-md border border-blue-200">{suggestion.suggestedName}</div>
         </div>
         
-        {/* Reasoning */}
-        {suggestion.reasoning && (
+        {/* Rename Reasoning */}
+        {suggestion.renameReasoning && (
           <div className="text-sm text-gray-700 bg-gray-100 p-3 rounded-md border border-gray-200">
-            {suggestion.reasoning}
+            <span className="font-medium">Rename Reason: </span>{suggestion.renameReasoning}
           </div>
         )}
         
-        {/* Folder Structure */}
-        {suggestion.suggestedPath && (
-          <div className="text-sm bg-purple-100 p-3 rounded-md border border-purple-200">
-            <span className="text-gray-700 font-medium">Move to:</span> 
-            <div className="text-purple-700 font-mono break-all mt-1">{suggestion.suggestedPath}</div>
+        {/* Folder Suggestion */}
+        {suggestion.suggestedFolder && (
+          <div className="bg-purple-50 p-3 rounded-md border border-purple-200">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center space-x-2">
+                <FaFolder className="text-purple-600" />
+                <span className="text-sm font-medium text-gray-800">Folder Organization</span>
+              </div>
+              <div className="flex space-x-1">
+                <button
+                  onClick={() => onFolderApprove(suggestion.id)}
+                  className={`p-1 rounded transition-colors ${
+                    folderApproved ? 'bg-green-500 text-white' : 'bg-gray-200 hover:bg-green-200 text-gray-600'
+                  }`}
+                  title="Approve folder creation"
+                >
+                  <FaCheck className="text-xs" />
+                </button>
+                <button
+                  onClick={() => onFolderReject(suggestion.id)}
+                  className={`p-1 rounded transition-colors ${
+                    folderRejected ? 'bg-red-500 text-white' : 'bg-gray-200 hover:bg-red-200 text-gray-600'
+                  }`}
+                  title="Reject folder creation"
+                >
+                  <FaTimes className="text-xs" />
+                </button>
+              </div>
+            </div>
+            <div className="text-sm text-purple-700 font-mono break-all mb-2">{suggestion.suggestedFolder}</div>
+            {suggestion.folderReasoning && (
+              <div className="text-xs text-gray-600">{suggestion.folderReasoning}</div>
+            )}
           </div>
         )}
         
-        {/* Actions */}
+        {/* Main Actions */}
         {!approved && !rejected && (
           <div className="grid grid-cols-2 gap-2">
             <button
@@ -92,16 +120,28 @@ const SuggestionCard = ({ suggestion, onApprove, onReject, approved, rejected })
 export default function AISuggestions({ suggestions, onApplyChanges, loading }) {
   const [approved, setApproved] = useState([])
   const [rejected, setRejected] = useState([])
+  const [folderApproved, setFolderApproved] = useState([])
+  const [folderRejected, setFolderRejected] = useState([])
   const [currentPage, setCurrentPage] = useState(0)
 
-  const handleApprove = (suggestion) => {
-    setApproved([...approved, suggestion.id])
-    setRejected(rejected.filter(id => id !== suggestion.id))
+  const handleApprove = (suggestionId) => {
+    setApproved([...approved, suggestionId])
+    setRejected(rejected.filter(id => id !== suggestionId))
   }
 
-  const handleReject = (suggestion) => {
-    setRejected([...rejected, suggestion.id])
-    setApproved(approved.filter(id => id !== suggestion.id))
+  const handleReject = (suggestionId) => {
+    setRejected([...rejected, suggestionId])
+    setApproved(approved.filter(id => id !== suggestionId))
+  }
+
+  const handleFolderApprove = (suggestionId) => {
+    setFolderApproved([...folderApproved, suggestionId])
+    setFolderRejected(folderRejected.filter(id => id !== suggestionId))
+  }
+
+  const handleFolderReject = (suggestionId) => {
+    setFolderRejected([...folderRejected, suggestionId])
+    setFolderApproved(folderApproved.filter(id => id !== suggestionId))
   }
 
   const handleApproveAll = () => {
@@ -115,7 +155,10 @@ export default function AISuggestions({ suggestions, onApplyChanges, loading }) 
   }
 
   const handleApplyChanges = () => {
-    const approvedSuggestions = suggestions.filter(s => approved.includes(s.id))
+    const approvedSuggestions = suggestions.filter(s => approved.includes(s.id)).map(s => ({
+      ...s,
+      includeFolderCreation: folderApproved.includes(s.id)
+    }))
     onApplyChanges(approvedSuggestions)
   }
 
@@ -160,10 +203,14 @@ export default function AISuggestions({ suggestions, onApplyChanges, loading }) 
               <SuggestionCard
                 key={suggestions[currentPage].id}
                 suggestion={suggestions[currentPage]}
-                onApprove={() => handleApprove(suggestions[currentPage])}
-                onReject={() => handleReject(suggestions[currentPage])}
+                onApprove={handleApprove}
+                onReject={handleReject}
+                onFolderApprove={handleFolderApprove}
+                onFolderReject={handleFolderReject}
                 approved={approved.includes(suggestions[currentPage].id)}
                 rejected={rejected.includes(suggestions[currentPage].id)}
+                folderApproved={folderApproved.includes(suggestions[currentPage].id)}
+                folderRejected={folderRejected.includes(suggestions[currentPage].id)}
               />
             </AnimatePresence>
           </div>
