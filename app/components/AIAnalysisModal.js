@@ -39,6 +39,7 @@ export default function AIAnalysisModal({ analysisData, onExecuteActions, loadin
 
   const folderActions = actions.filter(action => action.type === 'create_folder')
   const moveActions = actions.filter(action => action.type === 'move_file')
+  const renameActions = actions.filter(action => action.type === 'rename_file')
 
   return (
     <AnimatePresence>
@@ -52,7 +53,7 @@ export default function AIAnalysisModal({ analysisData, onExecuteActions, loadin
             className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
             onClick={onClose}
           />
-          
+
           {/* Modal */}
           <motion.div
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -67,7 +68,7 @@ export default function AIAnalysisModal({ analysisData, onExecuteActions, loadin
                 <FaRobot className="text-green-400 text-3xl" />
                 <span>AI Proposed Actions</span>
               </h3>
-              
+
               <div className="flex items-center space-x-4">
                 <button
                   onClick={() => setShowDetails(!showDetails)}
@@ -76,7 +77,7 @@ export default function AIAnalysisModal({ analysisData, onExecuteActions, loadin
                   <FaEye />
                   <span>{showDetails ? 'Hide' : 'Show'} Details</span>
                 </button>
-                
+
                 <button
                   onClick={onClose}
                   className="text-gray-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/10"
@@ -176,6 +177,42 @@ export default function AIAnalysisModal({ analysisData, onExecuteActions, loadin
                   </div>
 
                   <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {/* Rename Actions */}
+                    {renameActions.map((action, index) => {
+                      const actionIndex = actions.indexOf(action)
+                      return (
+                        <motion.div
+                          key={`rename-${index}`}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.3 + index * 0.05 }}
+                          className={`p-4 rounded-lg border cursor-pointer transition-all ${selectedActions.has(actionIndex)
+                              ? 'bg-purple-500/20 border-purple-400/50 shadow-lg'
+                              : 'bg-white/5 border-white/10 hover:bg-white/10'
+                            }`}
+                          onClick={() => toggleAction(actionIndex)}
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${selectedActions.has(actionIndex)
+                                ? 'bg-purple-500 border-purple-500 scale-110'
+                                : 'border-gray-400'
+                              }`}>
+                              {selectedActions.has(actionIndex) && <FaCheck className="text-xs text-white" />}
+                            </div>
+                            <FaFile className="text-purple-400 text-lg" />
+                            <div className="flex-1">
+                              <div className="text-sm font-medium text-white">
+                                Rename "{action.fileName}" → {action.newName}
+                              </div>
+                              {action.reasoning && (
+                                <div className="text-xs text-gray-300 mt-1">{action.reasoning}</div>
+                              )}
+                            </div>
+                          </div>
+                        </motion.div>
+                      )
+                    })}
+
                     {/* Folder Creation Actions */}
                     {folderActions.map((action, index) => {
                       const actionIndex = actions.indexOf(action)
@@ -185,19 +222,17 @@ export default function AIAnalysisModal({ analysisData, onExecuteActions, loadin
                           initial={{ opacity: 0, x: -20 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: 0.3 + index * 0.05 }}
-                          className={`p-4 rounded-lg border cursor-pointer transition-all ${
-                            selectedActions.has(actionIndex)
-                              ? 'bg-green-500/20 border-green-400/50 shadow-lg'
-                              : 'bg-white/5 border-white/10 hover:bg-white/10'
-                          }`}
+                          className={`p-4 rounded-lg border cursor-pointer transition-all ${selectedActions.has(actionIndex)
+                            ? 'bg-green-500/20 border-green-400/50 shadow-lg'
+                            : 'bg-white/5 border-white/10 hover:bg-white/10'
+                            }`}
                           onClick={() => toggleAction(actionIndex)}
                         >
                           <div className="flex items-center space-x-3">
-                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
-                              selectedActions.has(actionIndex)
-                                ? 'bg-green-500 border-green-500 scale-110'
-                                : 'border-gray-400'
-                            }`}>
+                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${selectedActions.has(actionIndex)
+                              ? 'bg-green-500 border-green-500 scale-110'
+                              : 'border-gray-400'
+                              }`}>
                               {selectedActions.has(actionIndex) && <FaCheck className="text-xs text-white" />}
                             </div>
                             <FaFolder className="text-yellow-400 text-lg" />
@@ -221,19 +256,17 @@ export default function AIAnalysisModal({ analysisData, onExecuteActions, loadin
                           initial={{ opacity: 0, x: -20 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: 0.3 + (folderActions.length + index) * 0.05 }}
-                          className={`p-4 rounded-lg border cursor-pointer transition-all ${
-                            selectedActions.has(actionIndex)
-                              ? 'bg-blue-500/20 border-blue-400/50 shadow-lg'
-                              : 'bg-white/5 border-white/10 hover:bg-white/10'
-                          }`}
+                          className={`p-4 rounded-lg border cursor-pointer transition-all ${selectedActions.has(actionIndex)
+                            ? 'bg-blue-500/20 border-blue-400/50 shadow-lg'
+                            : 'bg-white/5 border-white/10 hover:bg-white/10'
+                            }`}
                           onClick={() => toggleAction(actionIndex)}
                         >
                           <div className="flex items-center space-x-3">
-                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
-                              selectedActions.has(actionIndex)
-                                ? 'bg-blue-500 border-blue-500 scale-110'
-                                : 'border-gray-400'
-                            }`}>
+                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${selectedActions.has(actionIndex)
+                              ? 'bg-blue-500 border-blue-500 scale-110'
+                              : 'border-gray-400'
+                              }`}>
                               {selectedActions.has(actionIndex) && <FaCheck className="text-xs text-white" />}
                             </div>
                             <FaFile className="text-gray-400 text-lg" />
