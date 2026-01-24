@@ -13,9 +13,9 @@ export async function POST(request) {
     const { actions } = await request.json()
 
     if (!actions || actions.length === 0) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'No actions to execute' 
+      return NextResponse.json({
+        success: false,
+        error: 'No actions to execute'
       }, { status: 400 })
     }
 
@@ -89,32 +89,57 @@ export async function POST(request) {
     // Move files to folders
     for (const action of moveActions) {
       try {
-        const targetFolderId = createdFolders.get(action.targetFolder)
-        if (!targetFolderId) {
-          results.push({
-            action: 'move_file',
-            fileName: action.fileName,
-            success: false,
-            error: `Target folder '${action.targetFolder}' not found`
-          })
-          continue
-        }
+        let targetFolderId = createdFolders.get(action.targetFolder)
 
-        // Get current file metadata to find current parents
+        // Get current file metadata first to know the parent
         const file = await drive.files.get({
           fileId: action.fileId,
-          fields: 'parents'
+          fields: 'parents, name'
         })
-
+        const currentParentId = file.data.parents ? file.data.parents[0] : 'root'
         const previousParents = file.data.parents ? file.data.parents.join(',') : ''
 
+        // If folder not in cache, look for it in the current parent or create it
+        if (!targetFolderId) {
+          // Check if folder exists in current parent
+          const existingFolders = await drive.files.list({
+            q: `name='${action.targetFolder}' and '${currentParentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+            fields: 'files(id)'
+          })
+
+          if (existingFolders.data.files.length > 0) {
+            targetFolderId = existingFolders.data.files[0].id
+            createdFolders.set(action.targetFolder, targetFolderId)
+          } else {
+            // Create it
+            console.log(`Auto-creating folder '${action.targetFolder}' for file move`)
+            const newFolder = await drive.files.create({
+              resource: {
+                name: action.targetFolder,
+                mimeType: 'application/vnd.google-apps.folder',
+                parents: [currentParentId]
+              },
+              fields: 'id'
+            })
+            targetFolderId = newFolder.data.id
+            createdFolders.set(action.targetFolder, targetFolderId)
+          }
+        }
+
         // Move file to new folder
-        await drive.files.update({
+        console.log(`[Move Debug] Moving file ${action.fileId} (${action.fileName})`)
+        console.log(`[Move Debug] Target Folder ID: ${targetFolderId}, Previous Parents: ${previousParents}`)
+
+        const updateParams = {
           fileId: action.fileId,
           addParents: targetFolderId,
           removeParents: previousParents,
           fields: 'id,parents'
-        })
+        }
+        console.log(`[Move Debug] Update Params:`, JSON.stringify(updateParams))
+
+        const moveResult = await drive.files.update(updateParams)
+        console.log(`[Move Debug] Move result:`, JSON.stringify(moveResult.data))
 
         results.push({
           action: 'move_file',
@@ -127,6 +152,36 @@ export async function POST(request) {
         console.error(`Error moving file ${action.fileName}:`, error)
         results.push({
           action: 'move_file',
+          fileName: action.fileName,
+          success: false,
+          error: error.message
+        })
+      }
+    }
+
+    // Rename files
+    const renameActions = actions.filter(action => action.type === 'rename_file')
+    for (const action of renameActions) {
+      try {
+        await drive.files.update({
+          fileId: action.fileId,
+          resource: {
+            name: action.newName
+          },
+          fields: 'id,name'
+        })
+
+        results.push({
+          action: 'rename_file',
+          fileName: action.fileName,
+          newName: action.newName,
+          success: true,
+          message: 'File renamed successfully'
+        })
+      } catch (error) {
+        console.error(`Error renaming file ${action.fileName}:`, error)
+        results.push({
+          action: 'rename_file',
           fileName: action.fileName,
           success: false,
           error: error.message
