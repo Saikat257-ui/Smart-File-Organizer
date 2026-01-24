@@ -54,9 +54,9 @@ export default function AIPromptSection({ selectedFiles, onExecutePrompt, loadin
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="flex flex-col">
       {/* Quick Actions Section */}
-      <div className="mb-4 flex-shrink-0">
+      <div className="mb-4">
         <h3 className="text-sm font-semibold text-gray-800 mb-3">Quick Actions</h3>
         <div className="space-y-2">
           {predefinedPrompts.map((predefined) => (
@@ -74,18 +74,18 @@ export default function AIPromptSection({ selectedFiles, onExecutePrompt, loadin
       </div>
 
       {/* Custom AI Command Section */}
-      <div className="flex-1 flex flex-col min-h-0">
-        <h3 className="text-sm font-semibold text-gray-800 mb-3 flex-shrink-0">Custom AI Command</h3>
-        <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
-          <div className="flex-1 relative min-h-0">
+      <div className="flex flex-col">
+        <h3 className="text-sm font-semibold text-gray-800 mb-3">Custom AI Command</h3>
+        <form onSubmit={handleSubmit} className="flex flex-col">
+          <div className="relative" style={{height: '160px'}}>
             <div className="relative w-full h-full">
               <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-orange-400 via-pink-500 to-purple-600 p-[1px]">
                 <textarea
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
-                  placeholder={selectedFiles.length === 0 
-                    ? "Select files from 'Your Drive Files' section first, then describe what you want the AI to do...\n\nExample: 'Analyze these documents and create folders based on their topics.'"
-                    : "Describe what you want the AI to do with your selected files...\n\nExample: 'Analyze these documents and create folders based on their topics.'"}
+                  // placeholder={selectedFiles.length === 0 
+                  //   ? "Select files from 'Your Drive Files' section first, then describe what you want the AI to do...\n\nExample: 'Analyze these documents and create folders based on their topics.'"
+                  //   : "Describe what you want the AI to do with your selected files...\n\nExample: 'Analyze these documents and create folders based on their topics.'"}
                   className="w-full h-full px-3 py-2 bg-white rounded-[7px] text-gray-800 placeholder-gray-500 focus:outline-none resize-none text-sm"
                   disabled={loading}
                 />
@@ -93,9 +93,9 @@ export default function AIPromptSection({ selectedFiles, onExecutePrompt, loadin
             </div>
             {selectedFiles.length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="text-center text-gray-500">
-                  <FaFolderPlus className="text-xl mx-auto mb-2 opacity-30" />
-                  <p className="text-xs opacity-60">Select files to enable AI commands</p>
+                <div className="text-center text-gray-400">
+                  <FaFolderPlus className="text-2xl mx-auto mb-2" />
+                  <p className="text-sm">Select files to enable AI commands</p>
                 </div>
               </div>
             )}
@@ -103,7 +103,7 @@ export default function AIPromptSection({ selectedFiles, onExecutePrompt, loadin
           <button
             type="submit"
             disabled={loading || !prompt.trim() || selectedFiles.length === 0}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm flex-shrink-0 mt-3 transition-colors"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm mt-3 transition-colors"
           >
             {loading ? (
               <>
