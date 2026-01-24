@@ -4,53 +4,27 @@ import { google } from 'googleapis'
 import { v4 as uuidv4 } from 'uuid'
 import { authOptions } from '../../auth/[...nextauth]/route'
 
-const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent'
 
 // Simple in-memory rate limiter
 let lastRequestTime = 0;
 const COOLDOWN_PERIOD = 5000; // 5 seconds
 
-async function getFileContent(drive, fileId, mimeType) {
-  try {
-    if (mimeType === 'application/vnd.google-apps.document') {
-      // Export Google Docs as plain text
-      const response = await drive.files.export({
-        fileId: fileId,
-        mimeType: 'text/plain'
-      })
-      return response.data
-    } else if (mimeType === 'application/pdf') {
-      // For PDFs, we'll need to download and parse them
-      const response = await drive.files.get({
-        fileId: fileId,
-        alt: 'media'
-      })
-      // Note: In a real implementation, you'd use pdf-parse here
-      return 'PDF content extraction would go here'
-    }
-    return null
-  } catch (error) {
-    console.error('Error getting file content:', error)
-    return null
-  }
-}
+// NOTE: Removed file content fetching. The app no longer requests file contents
+// from Drive (uses least-privilege scopes). If you need content in future,
+// restore logic here and ensure the OAuth scopes match.
 
-async function callQwenAPI(prompt) {
+async function callGeminiAPI(prompt) {
   try {
-    const response = await fetch(OPENROUTER_API_URL, {
+    const response = await fetch(`${GEMINI_API_URL}?key=${process.env.GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': process.env.NEXTAUTH_URL,
-        'X-Title': 'Drive AI Organizer'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'qwen/qwen-2.5-coder-32b-instruct',
-        messages: [
-          {
-            role: 'system',
-            content: `You are an AI assistant specialized in file organization and naming conventions. For each file, provide ONE suggestion that includes both renaming and optional folder organization.
+        contents: [{
+          parts: [{
+            text: `You are an AI assistant specialized in file organization and naming conventions. For each file, provide ONE suggestion that includes both renaming and optional folder organization.
 
 For each file, suggest:
 1. An improved file name with better naming conventions
@@ -63,26 +37,26 @@ Respond with a JSON array where each object represents ONE file with:
 - renameReasoning: explanation for the rename
 - suggestedFolder: optional folder path for organization (can be null)
 - folderReasoning: explanation for folder suggestion (can be null)
-- confidence: number 0-1 indicating confidence`
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.3,
-        max_tokens: 2000
+- confidence: number 0-1 indicating confidence
+
+${prompt}`
+          }]
+        }],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 2000
+        }
       })
     })
 
     if (!response.ok) {
-      throw new Error(`OpenRouter API error: ${response.statusText}`)
+      throw new Error(`Gemini API error: ${response.statusText}`)
     }
 
     const data = await response.json()
-    return data.choices[0]?.message?.content || ''
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || ''
   } catch (error) {
-    console.error('Qwen API Error:', error)
+    console.error('Gemini API Error:', error)
     throw error
   }
 }
@@ -94,73 +68,69 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Too Many Requests' }, { status: 429 });
     }
     lastRequestTime = now;
-    
+
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.accessToken) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { files } = await request.json()
-    
+
     if (!files || !Array.isArray(files)) {
       return NextResponse.json({ error: 'Invalid files data' }, { status: 400 })
     }
 
     const auth = new google.auth.OAuth2()
     auth.setCredentials({ access_token: session.accessToken })
-    
+
     const drive = google.drive({ version: 'v3', auth })
-    
+
     // Get detailed file information
     const fileDetails = []
-    
+
     for (const fileId of files) {
       try {
         const fileResponse = await drive.files.get({
           fileId: fileId,
           fields: 'id,name,mimeType,size,modifiedTime,parents,description'
         })
-        
+
         const file = fileResponse.data
-        
-        // Get file content for better context (for supported types)
-        const content = await getFileContent(drive, fileId, file.mimeType)
-        
+
+        // We no longer fetch file contents; only include metadata.
         fileDetails.push({
-          ...file,
-          content: content ? content.substring(0, 500) : null // Limit content length
+          ...file
         })
       } catch (error) {
         console.error(`Error getting file details for ${fileId}:`, error)
       }
     }
-    
+
     // Create prompt for AI
     const prompt = `Analyze these files and provide ONE suggestion per file for renaming and optional folder organization:
 
-${fileDetails.map(file => `
-File: ${file.name}
-Type: ${file.mimeType}
-Size: ${file.size ? Math.round(file.size / 1024) + 'KB' : 'Unknown'}
-Modified: ${file.modifiedTime}
-${file.content ? `Content preview: ${file.content}` : ''}
----`).join('\n')}
+    ${fileDetails.map(file => `
+    File: ${file.name}
+    Type: ${file.mimeType}
+    Size: ${file.size ? Math.round(file.size / 1024) + 'KB' : 'Unknown'}
+    Modified: ${file.modifiedTime}
+    ---`).join('\n')}
 
-For each file, provide exactly ONE suggestion object with:
-- fileId: "${fileDetails.map(f => f.id).join('" or "')}"
-- originalName: current file name
-- suggestedName: improved file name
-- renameReasoning: why this name is better
-- suggestedFolder: folder path (can be null if no organization needed)
-- folderReasoning: why this folder structure (can be null)
-- confidence: 0-1 score
+    For each file, provide exactly ONE suggestion object with:
+    - fileId: "${fileDetails.map(f => f.id).join('" or "')}"
+    - originalName: current file name
+    - suggestedName: improved file name
+    - renameReasoning: why this name is better
+    - suggestedFolder: folder path (can be null if no organization needed)
+    - folderReasoning: why this folder structure (can be null)
+    - confidence: 0-1 score
 
-Return a JSON array with exactly ${fileDetails.length} objects, one per file.`
+    Return a JSON array with exactly ${fileDetails.length} objects, one per file.`
 
-    // Call Qwen AI API
-    const aiResponse = await callQwenAPI(prompt)
-    
+    // Call Gemini AI API
+    const aiResponse = await callGeminiAPI(prompt)
+
     // Parse AI response
     let suggestions = []
     try {
@@ -205,13 +175,13 @@ Return a JSON array with exactly ${fileDetails.length} objects, one per file.`
         confidence: 0.5
       }))
     }
-    
+
     return NextResponse.json({
       success: true,
       suggestions: suggestions,
       aiResponse: aiResponse
     })
-    
+
   } catch (error) {
     console.error('AI Suggestions Error:', error)
     return NextResponse.json({
