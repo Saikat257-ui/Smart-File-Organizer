@@ -10,38 +10,37 @@ const SuggestionCard = ({ suggestion, onApprove, onReject, onFolderApprove, onFo
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
-      className={`bg-white border border-gray-200 rounded-lg shadow-sm p-3 border-l-4 mb-3 hover:bg-gray-50 transition-all duration-300 ${
-        approved ? 'border-green-500 bg-green-50' :
+      className={`bg-white border border-gray-200 rounded-lg shadow-sm p-3 border-l-4 mb-3 hover:bg-gray-50 transition-all duration-300 ${approved ? 'border-green-500 bg-green-50' :
         rejected ? 'border-red-500 bg-red-50' :
-        'border-blue-500'
-      }`}
+          'border-blue-500'
+        }`}
     >
       <div className="space-y-4">
         {/* File Info */}
         <div className="text-sm text-gray-600">
           <span className="font-medium text-gray-800">File Rename</span> • <span className="break-all text-gray-700">{suggestion.originalName}</span>
         </div>
-        
+
         {/* Rename Suggestion */}
         <div className="space-y-2">
           <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">Original Name</div>
           <div className="text-sm text-gray-700 break-all bg-gray-100 p-3 rounded-md border border-gray-200">{suggestion.originalName}</div>
-          
+
           <div className="flex justify-center">
             <FaArrowRight className="text-gray-500 text-sm" />
           </div>
-          
+
           <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">Suggested Name</div>
           <div className="text-sm text-gray-800 font-medium break-all bg-blue-100 p-3 rounded-md border border-blue-200">{suggestion.suggestedName}</div>
         </div>
-        
+
         {/* Rename Reasoning */}
         {suggestion.renameReasoning && (
           <div className="text-sm text-gray-700 bg-gray-100 p-3 rounded-md border border-gray-200">
             <span className="font-medium">Rename Reason: </span>{suggestion.renameReasoning}
           </div>
         )}
-        
+
         {/* Folder Suggestion */}
         {suggestion.suggestedFolder && (
           <div className="bg-purple-50 p-3 rounded-md border border-purple-200">
@@ -53,18 +52,16 @@ const SuggestionCard = ({ suggestion, onApprove, onReject, onFolderApprove, onFo
               <div className="flex space-x-1">
                 <button
                   onClick={() => onFolderApprove(suggestion.id)}
-                  className={`p-1 rounded transition-colors ${
-                    folderApproved ? 'bg-green-500 text-white' : 'bg-gray-200 hover:bg-green-200 text-gray-600'
-                  }`}
+                  className={`p-1 rounded transition-colors ${folderApproved ? 'bg-green-500 text-white' : 'bg-gray-200 hover:bg-green-200 text-gray-600'
+                    }`}
                   title="Approve folder creation"
                 >
                   <FaCheck className="text-xs" />
                 </button>
                 <button
                   onClick={() => onFolderReject(suggestion.id)}
-                  className={`p-1 rounded transition-colors ${
-                    folderRejected ? 'bg-red-500 text-white' : 'bg-gray-200 hover:bg-red-200 text-gray-600'
-                  }`}
+                  className={`p-1 rounded transition-colors ${folderRejected ? 'bg-red-500 text-white' : 'bg-gray-200 hover:bg-red-200 text-gray-600'
+                    }`}
                   title="Reject folder creation"
                 >
                   <FaTimes className="text-xs" />
@@ -77,7 +74,7 @@ const SuggestionCard = ({ suggestion, onApprove, onReject, onFolderApprove, onFo
             )}
           </div>
         )}
-        
+
         {/* Main Actions */}
         {!approved && !rejected && (
           <div className="grid grid-cols-2 gap-2">
@@ -97,7 +94,7 @@ const SuggestionCard = ({ suggestion, onApprove, onReject, onFolderApprove, onFo
             </button>
           </div>
         )}
-        
+
         {/* Status */}
         {approved && (
           <div className="text-green-700 text-sm flex items-center space-x-2 bg-green-100 p-2 rounded-md border border-green-200">
@@ -105,7 +102,7 @@ const SuggestionCard = ({ suggestion, onApprove, onReject, onFolderApprove, onFo
             <span className="font-medium">Approved for application</span>
           </div>
         )}
-        
+
         {rejected && (
           <div className="text-red-700 text-sm flex items-center space-x-2 bg-red-100 p-2 rounded-md border border-red-200">
             <FaTimes />
@@ -127,6 +124,13 @@ export default function AISuggestions({ suggestions, onApplyChanges, loading }) 
   const handleApprove = (suggestionId) => {
     setApproved([...approved, suggestionId])
     setRejected(rejected.filter(id => id !== suggestionId))
+
+    // Auto-approve folder if generic approve is clicked and folder suggestion exists
+    const suggestion = suggestions.find(s => s.id === suggestionId)
+    if (suggestion && suggestion.suggestedFolder) {
+      setFolderApproved(prev => [...prev.filter(id => id !== suggestionId), suggestionId])
+      setFolderRejected(prev => prev.filter(id => id !== suggestionId))
+    }
   }
 
   const handleReject = (suggestionId) => {
@@ -187,7 +191,7 @@ export default function AISuggestions({ suggestions, onApplyChanges, loading }) 
               <FaCheck className="text-green-600" />
               <span>Approve All</span>
             </button>
-            
+
             <button
               onClick={handleRejectAll}
               className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 rounded-lg flex items-center justify-center gap-2 py-2 transition-colors"
@@ -248,10 +252,19 @@ export default function AISuggestions({ suggestions, onApplyChanges, loading }) 
           )}
         </>
       ) : (
-        <div className="h-full flex flex-col items-center justify-center text-gray-400 space-y-2">
-          <FaBrain className="text-4xl" />
-          <p className="text-sm">No suggestions yet</p>
+        // <div className="h-full flex flex-col items-center justify-center text-gray-400 space-y-2">
+        //   <FaBrain className="text-4xl" />
+        //   <p className="text-sm">No suggestions yet</p>
+        // </div>
+        <div className="flex items-center justify-center w-full min-h-[300px]">
+          <div className="flex flex-col items-center text-gray-400 space-y-2">
+            <FaBrain className="text-4xl" />
+            <p className="text-sm">No suggestions yet</p>
+          </div>
         </div>
+
+
+
       )}
     </div>
   )
