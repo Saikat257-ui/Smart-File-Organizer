@@ -23,7 +23,7 @@ export default function RootLayout({ children }) {
           `
         }} />
       </head>
-      <body className={inter.className}>
+      <body className={inter.className} suppressHydrationWarning>
         <AuthProvider>
           {children}
         </AuthProvider>
