@@ -5,6 +5,7 @@ import { useSession, signOut } from 'next-auth/react'
 import { motion } from 'framer-motion'
 import Navbar from './Navbar'
 import FileTree from './FileTree'
+import GooglePicker from './GooglePicker'
 import AISuggestions from './AISuggestions'
 import AIPromptSection from './AIPromptSection'
 import AIAnalysisModal from './AIAnalysisModal'
@@ -22,6 +23,8 @@ export default function Dashboard() {
   const [lastFetchTime, setLastFetchTime] = useState(null)
   const [analysisData, setAnalysisData] = useState(null)
   const [showAnalysisModal, setShowAnalysisModal] = useState(false)
+  const [pickerStatus, setPickerStatus] = useState(null)
+  const [showPickerMessage, setShowPickerMessage] = useState(true)
   const { socket, connected, progress, logs, addLog, clearLogs } = useSocket()
 
   const addStatusLog = (message, type = 'info') => {
@@ -202,19 +205,62 @@ export default function Dashboard() {
   }, [session, files.length])
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
-      <Navbar user={session?.user} onSignOut={signOut} />
+    <div className="h-screen flex flex-col bg-gray-50">
+      {/* Fixed Navbar */}
+      <div className="flex-shrink-0">
+        <Navbar user={session?.user} onSignOut={signOut} />
+      </div>
       
-      <div className="flex-1 container mx-auto px-4 py-8 overflow-hidden">
+      <div className="flex-1 flex overflow-hidden">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="grid lg:grid-cols-3 gap-6 h-full"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="flex w-full h-full"
         >
-          {/* Left Panel - Files and AI Suggestions */}
-          <div className="lg:col-span-2 flex flex-col gap-4 h-full">
-            {/* File Tree Section */}
-            <div className="bg-gray-50 border border-gray-200 rounded-xl shadow-[0_4px_6px_rgba(0,0,0,0.1),0_10px_20px_rgba(0,0,0,0.05)] p-6 flex flex-col min-h-0" style={{height: '500px', maxHeight: '500px'}}>
+          {/* Fixed Left Sidebar - AI Assistant */}
+          <div className="w-96 bg-white border-r border-gray-200 p-6 flex flex-col h-full flex-shrink-0">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center space-x-2">
+              <FaBrain className="text-blue-600" />
+              <span>AI Assistant</span>
+            </h3>
+            
+            <div className="mb-6">
+              <AIPromptSection 
+                selectedFiles={selectedFiles}
+                onExecutePrompt={executeCustomPrompt}
+                loading={loading}
+              />
+            </div>
+            
+            <div className="flex-1 min-h-0">
+              <StatusLog logs={logs} />
+            </div>
+          </div>
+
+          {/* Scrollable Main Content Area */}
+          <div className="flex-1 p-6 overflow-y-auto">
+            {/* Drive Files Section */}
+            {pickerStatus && showPickerMessage && (
+              <div className="mb-4">
+                <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-sm text-blue-700">Google Picker status:</p>
+                      <p className="text-sm text-gray-800">
+                        {pickerStatus.missing && pickerStatus.missing.length > 0
+                          ? pickerStatus.missing.join('; ')
+                          : 'Picker ready and configured.'}
+                      </p>
+                    </div>
+                    <div>
+                      <button onClick={() => setShowPickerMessage(false)} className="text-sm text-gray-500 hover:text-gray-800">Dismiss</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6" style={{minHeight: '60vh'}}>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <h2 className="text-xl font-bold text-gray-800">Your Drive Files</h2>
@@ -225,6 +271,19 @@ export default function Dashboard() {
                   )}
                 </div>
                 <div className="flex space-x-2">
+                  <GooglePicker
+                    oauthToken={session?.accessToken}
+                    developerKey={process.env.NEXT_PUBLIC_GOOGLE_API_KEY}
+                    appId={process.env.NEXT_PUBLIC_GOOGLE_PICKER_APP_ID}
+                    onStatus={(status) => setPickerStatus(status)}
+                    onPick={(docs) => {
+                      // Docs is an array of picked files from the Picker
+                      const pickedIds = docs.map(d => d.id)
+                      // Merge into selectedFiles (dedupe)
+                      setSelectedFiles(prev => Array.from(new Set([...prev, ...pickedIds])))
+                      // Optionally fetch content for the picked files if you want immediate analysis
+                      // e.g. fetch('/api/drive/content', { method: 'POST', body: JSON.stringify({ fileId: pickedIds[0] }) })
+                    }} />
                   <button
                     onClick={() => fetchFiles(true)}
                     disabled={loading}
@@ -243,8 +302,8 @@ export default function Dashboard() {
                   </button>
                 </div>
               </div>
-              {/* File list with fixed height and scroll */}
-              <div className="flex-1 min-h-0 overflow-y-auto">
+              
+              <div style={{height: 'calc(70vh - 120px)'}}>
                 <FileTree
                   files={files}
                   selectedFiles={selectedFiles}
@@ -254,50 +313,13 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* AI Suggestions - Bottom Left */}
-            <div className="bg-gray-50 border border-gray-200 rounded-xl shadow-[0_4px_6px_rgba(0,0,0,0.1),0_10px_20px_rgba(0,0,0,0.05)] p-4 h-[400px] flex flex-col">
+            {/* AI Suggestions Section */}
+            <div className="bg-white border border-gray-200 rounded-xl p-4" style={{minHeight: '320px'}}>
               <AISuggestions
                 suggestions={suggestions}
                 onApplyChanges={applyChanges}
                 loading={loading}
               />
-            </div>
-          </div>
-
-          {/* Right Panel - AI Assistant */}
-          <div className="bg-gray-50 border border-gray-200 rounded-xl shadow-[0_4px_6px_rgba(0,0,0,0.1),0_10px_20px_rgba(0,0,0,0.05)] p-6 flex flex-col h-full min-h-0">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-800 flex items-center space-x-3">
-                <FaBrain className="text-blue-600 text-xl" />
-                <span>AI Assistant</span>
-              </h2>
-              
-              {/* Selected Files Badge */}
-              {selectedFiles.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <span className="px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded-full border border-blue-200 flex items-center gap-2">
-                    <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
-                    {selectedFiles.length} file{selectedFiles.length !== 1 ? 's' : ''} selected
-                  </span>
-                </div>
-              )}
-            </div>
-            
-            <div className="flex-1 flex flex-col gap-4 min-h-0">
-              {/* AI Prompt Section */}
-              <div className="flex-1 min-h-0">
-                <AIPromptSection
-                  selectedFiles={selectedFiles}
-                  onExecutePrompt={executeCustomPrompt}
-                  loading={loading}
-                />
-              </div>
-              
-              
-              {/* Status Log */}
-              <div className="h-40 min-h-0">
-                <StatusLog logs={logs} />
-              </div>
             </div>
           </div>
         </motion.div>
@@ -322,3 +344,4 @@ export default function Dashboard() {
     </div>
   )
 }
+
