@@ -6,12 +6,12 @@ import { authOptions } from '../../auth/[...nextauth]/route'
 export async function GET(request) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.accessToken || session.error === 'RefreshAccessTokenError') {
-      return NextResponse.json({ 
-        error: 'Authentication failed', 
-        message: session.error === 'RefreshAccessTokenError' 
-          ? 'Your session has expired. Please sign in again.' 
+      return NextResponse.json({
+        error: 'Authentication failed',
+        message: session.error === 'RefreshAccessTokenError'
+          ? 'Your session has expired. Please sign in again.'
           : 'Not authenticated'
       }, { status: 401 })
     }
@@ -20,13 +20,13 @@ export async function GET(request) {
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET
     )
-    auth.setCredentials({ 
+    auth.setCredentials({
       access_token: session.accessToken,
       refresh_token: session.refreshToken
     })
-    
+
     const drive = google.drive({ version: 'v3', auth })
-    
+
     // Get all files owned by the user (not shared)
     const response = await drive.files.list({
       q: "trashed=false and 'me' in owners",
@@ -34,13 +34,13 @@ export async function GET(request) {
       pageSize: 1000,
       orderBy: 'name'
     })
-    
+
     const files = response.data.files || []
-    
+
     // Build hierarchical structure
     const fileMap = new Map()
     const rootFiles = []
-    
+
     // First pass: create file objects
     files.forEach(file => {
       fileMap.set(file.id, {
@@ -48,11 +48,11 @@ export async function GET(request) {
         children: []
       })
     })
-    
+
     // Second pass: build hierarchy
     files.forEach(file => {
       const fileObj = fileMap.get(file.id)
-      
+
       if (file.parents && file.parents.length > 0) {
         const parent = fileMap.get(file.parents[0])
         if (parent) {
@@ -64,15 +64,21 @@ export async function GET(request) {
         rootFiles.push(fileObj)
       }
     })
-    
+
     return NextResponse.json({
       success: true,
       files: rootFiles,
       totalCount: files.length
     })
-    
+
   } catch (error) {
     console.error('Drive API Error:', error)
+    if (error.code === 403) {
+      return NextResponse.json({
+        success: false,
+        error: 'Insufficient permissions. Please sign out and sign in again, making sure to check all boxes to grant Google Drive access.'
+      }, { status: 403 })
+    }
     return NextResponse.json({
       success: false,
       error: error.message || 'Failed to fetch files'
