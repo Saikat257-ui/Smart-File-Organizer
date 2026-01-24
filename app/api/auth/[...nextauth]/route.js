@@ -8,7 +8,7 @@ export const authOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       authorization: {
         params: {
-          scope: 'openid email profile https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.metadata',
+          scope: 'openid email profile https://www.googleapis.com/auth/drive',
           access_type: 'offline',
           prompt: 'consent'
         }
@@ -83,6 +83,7 @@ export const authOptions = {
       if (token) {
         session.user = token.user
         session.accessToken = token.accessToken
+        session.refreshToken = token.refreshToken
         session.error = token.error
       }
       return session
