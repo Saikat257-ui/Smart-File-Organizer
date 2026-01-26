@@ -12,7 +12,7 @@ import AIAnalysisModal from './AIAnalysisModal'
 import StatusLog from './StatusLog'
 import ProgressBar from './ProgressBar'
 import { useSocket } from '../../hooks/useSocket'
-import { FaSync, FaBrain, FaSpinner } from 'react-icons/fa'
+import { FaSync, FaBrain, FaSpinner, FaTimes } from 'react-icons/fa'
 
 export default function Dashboard() {
   const { data: session } = useSession()
@@ -25,6 +25,7 @@ export default function Dashboard() {
   const [showAnalysisModal, setShowAnalysisModal] = useState(false)
   const [pickerStatus, setPickerStatus] = useState(null)
   const [showPickerMessage, setShowPickerMessage] = useState(true)
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const { socket, connected, progress, logs, addLog, clearLogs } = useSocket()
 
   const addStatusLog = (message, type = 'info') => {
@@ -35,7 +36,7 @@ export default function Dashboard() {
     // Check if we have recent data (within 5 minutes) and not forcing refresh
     const now = Date.now()
     const fiveMinutes = 5 * 60 * 1000
-    
+
     if (!forceRefresh && lastFetchTime && (now - lastFetchTime) < fiveMinutes && files.length > 0) {
       addStatusLog('Using cached file data', 'info')
       return
@@ -43,11 +44,11 @@ export default function Dashboard() {
 
     setLoading(true)
     addStatusLog('Fetching files from Google Drive...', 'info')
-    
+
     try {
       const response = await fetch('/api/drive/files')
       const data = await response.json()
-      
+
       if (data.success) {
         setFiles(data.files)
         setLastFetchTime(now)
@@ -77,9 +78,9 @@ export default function Dashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ files: selectedFiles })
       })
-      
+
       const data = await response.json()
-      
+
       if (data.success) {
         setSuggestions(data.suggestions)
         addStatusLog(`Generated ${data.suggestions.length} AI suggestions`, 'success')
@@ -103,9 +104,9 @@ export default function Dashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ changes: approvedSuggestions })
       })
-      
+
       const data = await response.json()
-      
+
       if (data.success) {
         addStatusLog(`Successfully applied ${data.applied} changes`, 'success')
         fetchFiles(true) // Force refresh the file list after changes
@@ -124,7 +125,7 @@ export default function Dashboard() {
   const executeCustomPrompt = async (prompt, selectedFileIds) => {
     // Convert file IDs to full file objects
     const selectedFileObjects = getAllFiles(files).filter(file => selectedFileIds.includes(file.id))
-    
+
     setLoading(true)
     addStatusLog(`Executing AI command on ${selectedFileObjects.length} files...`, 'info')
 
@@ -134,9 +135,9 @@ export default function Dashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt, files: selectedFileObjects })
       })
-      
+
       const data = await response.json()
-      
+
       if (data.success) {
         setAnalysisData(data)
         setShowAnalysisModal(true)
@@ -154,7 +155,7 @@ export default function Dashboard() {
   // Helper function to flatten nested file structure
   const getAllFiles = (fileList) => {
     const allFiles = []
-    
+
     const traverse = (files) => {
       for (const file of files) {
         allFiles.push(file)
@@ -163,7 +164,7 @@ export default function Dashboard() {
         }
       }
     }
-    
+
     traverse(fileList)
     return allFiles
   }
@@ -178,9 +179,9 @@ export default function Dashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ actions })
       })
-      
+
       const data = await response.json()
-      
+
       if (data.success) {
         const { summary } = data
         addStatusLog(`Actions completed: ${summary.successful}/${summary.total} successful`, 'success')
@@ -208,9 +209,14 @@ export default function Dashboard() {
     <div className="h-screen flex flex-col bg-gray-50">
       {/* Fixed Navbar */}
       <div className="flex-shrink-0">
-        <Navbar user={session?.user} onSignOut={signOut} />
+        <Navbar
+          user={session?.user}
+          onSignOut={signOut}
+          onMenuToggle={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+          showMenuButton={true}
+        />
       </div>
-      
+
       <div className="flex-1 flex overflow-hidden">
         <motion.div
           initial={{ opacity: 0, x: -20 }}
@@ -218,24 +224,49 @@ export default function Dashboard() {
           className="flex w-full h-full"
         >
           {/* Fixed Left Sidebar - AI Assistant */}
-          <div className="w-96 bg-white border-r border-gray-200 p-6 flex flex-col h-full flex-shrink-0">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center space-x-2">
-              <FaBrain className="text-blue-600" />
-              <span>AI Assistant</span>
-            </h3>
-            
+          {/* Desktop: Always visible, Mobile: Slide-in panel */}
+          <div className={`
+            fixed lg:relative inset-y-0 left-0 z-50
+            w-96 bg-white border-r border-gray-200 p-6 flex flex-col h-full flex-shrink-0
+            transform transition-transform duration-300 ease-in-out
+            lg:transform-none
+            ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+          `}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-800 flex items-center space-x-2">
+                <FaBrain className="text-blue-600" />
+                <span>AI Assistant</span>
+              </h3>
+              {/* Close button - Only visible on mobile */}
+              <button
+                onClick={() => setIsMobileSidebarOpen(false)}
+                className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Close menu"
+              >
+                <FaTimes className="text-gray-700 text-xl" />
+              </button>
+            </div>
+
             <div className="mb-6">
-              <AIPromptSection 
+              <AIPromptSection
                 selectedFiles={selectedFiles}
                 onExecutePrompt={executeCustomPrompt}
                 loading={loading}
               />
             </div>
-            
+
             <div className="flex-1 min-h-0">
               <StatusLog logs={logs} />
             </div>
           </div>
+
+          {/* Overlay for mobile sidebar */}
+          {isMobileSidebarOpen && (
+            <div
+              className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+              onClick={() => setIsMobileSidebarOpen(false)}
+            />
+          )}
 
           {/* Scrollable Main Content Area */}
           <div className="flex-1 p-6 overflow-y-auto">
@@ -260,7 +291,7 @@ export default function Dashboard() {
               </div>
             )}
 
-            <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6" style={{minHeight: '60vh'}}>
+            <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6" style={{ minHeight: '60vh' }}>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <h2 className="text-xl font-bold text-gray-800">Your Drive Files</h2>
@@ -302,8 +333,8 @@ export default function Dashboard() {
                   </button>
                 </div>
               </div>
-              
-              <div style={{height: 'calc(70vh - 120px)'}}>
+
+              <div style={{ height: 'calc(70vh - 120px)' }}>
                 <FileTree
                   files={files}
                   selectedFiles={selectedFiles}
@@ -314,7 +345,7 @@ export default function Dashboard() {
             </div>
 
             {/* AI Suggestions Section */}
-            <div className="bg-white border border-gray-200 rounded-xl p-4" style={{minHeight: '320px'}}>
+            <div className="bg-white border border-gray-200 rounded-xl p-4" style={{ minHeight: '320px' }}>
               <AISuggestions
                 suggestions={suggestions}
                 onApplyChanges={applyChanges}
@@ -323,15 +354,15 @@ export default function Dashboard() {
             </div>
           </div>
         </motion.div>
-        
+
         {/* Progress Bar Overlay */}
         {progress && (
-          <ProgressBar 
-            progress={progress} 
-            onClose={() => setProgress(null)} 
+          <ProgressBar
+            progress={progress}
+            onClose={() => setProgress(null)}
           />
         )}
-        
+
         {/* AI Analysis Modal */}
         <AIAnalysisModal
           analysisData={analysisData}
