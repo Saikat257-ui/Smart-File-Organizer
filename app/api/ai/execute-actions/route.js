@@ -27,9 +27,9 @@ export async function POST(request) {
     const results = []
     const createdFolders = new Map() // Track created folders to avoid duplicates
 
-    // Execute actions in order: create folders first, then move files
+    // Execute actions in order: create folders first, then move items
     const folderActions = actions.filter(action => action.type === 'create_folder')
-    const moveActions = actions.filter(action => action.type === 'move_file')
+    const moveActions = actions.filter(action => action.type === 'move_item')
 
     // Create folders
     for (const action of folderActions) {
@@ -86,18 +86,19 @@ export async function POST(request) {
       }
     }
 
-    // Move files to folders
+    // Move items (files or folders) to destination folders
     for (const action of moveActions) {
       try {
         let targetFolderId = createdFolders.get(action.targetFolder)
 
-        // Get current file metadata first to know the parent
-        const file = await drive.files.get({
-          fileId: action.fileId,
-          fields: 'parents, name'
+        // Get current item metadata first to know the parent
+        // 'action.itemId' should be valid now
+        const item = await drive.files.get({
+          fileId: action.itemId,
+          fields: 'parents, name, mimeType'
         })
-        const currentParentId = file.data.parents ? file.data.parents[0] : 'root'
-        const previousParents = file.data.parents ? file.data.parents.join(',') : ''
+        const currentParentId = item.data.parents ? item.data.parents[0] : 'root'
+        const previousParents = item.data.parents ? item.data.parents.join(',') : ''
 
         // If folder not in cache, look for it in the current parent or create it
         if (!targetFolderId) {
@@ -112,7 +113,7 @@ export async function POST(request) {
             createdFolders.set(action.targetFolder, targetFolderId)
           } else {
             // Create it
-            console.log(`Auto-creating folder '${action.targetFolder}' for file move`)
+            console.log(`Auto-creating folder '${action.targetFolder}' for item move`)
             const newFolder = await drive.files.create({
               resource: {
                 name: action.targetFolder,
@@ -126,12 +127,12 @@ export async function POST(request) {
           }
         }
 
-        // Move file to new folder
-        console.log(`[Move Debug] Moving file ${action.fileId} (${action.fileName})`)
+        // Move item to new folder
+        console.log(`[Move Debug] Moving item ${action.itemId} (${action.itemName})`)
         console.log(`[Move Debug] Target Folder ID: ${targetFolderId}, Previous Parents: ${previousParents}`)
 
         const updateParams = {
-          fileId: action.fileId,
+          fileId: action.itemId,
           addParents: targetFolderId,
           removeParents: previousParents,
           fields: 'id,parents'
@@ -142,29 +143,29 @@ export async function POST(request) {
         console.log(`[Move Debug] Move result:`, JSON.stringify(moveResult.data))
 
         results.push({
-          action: 'move_file',
-          fileName: action.fileName,
+          action: 'move_item',
+          itemName: action.itemName,
           targetFolder: action.targetFolder,
           success: true,
-          message: 'File moved successfully'
+          message: 'Item moved successfully'
         })
       } catch (error) {
-        console.error(`Error moving file ${action.fileName}:`, error)
+        console.error(`Error moving item ${action.itemName}:`, error)
         results.push({
-          action: 'move_file',
-          fileName: action.fileName,
+          action: 'move_item',
+          itemName: action.itemName,
           success: false,
           error: error.message
         })
       }
     }
 
-    // Rename files
-    const renameActions = actions.filter(action => action.type === 'rename_file')
+    // Rename items
+    const renameActions = actions.filter(action => action.type === 'rename_item')
     for (const action of renameActions) {
       try {
         await drive.files.update({
-          fileId: action.fileId,
+          fileId: action.itemId,
           resource: {
             name: action.newName
           },
@@ -172,17 +173,17 @@ export async function POST(request) {
         })
 
         results.push({
-          action: 'rename_file',
-          fileName: action.fileName,
+          action: 'rename_item',
+          itemName: action.itemName,
           newName: action.newName,
           success: true,
-          message: 'File renamed successfully'
+          message: 'Item renamed successfully'
         })
       } catch (error) {
-        console.error(`Error renaming file ${action.fileName}:`, error)
+        console.error(`Error renaming item ${action.itemName}:`, error)
         results.push({
-          action: 'rename_file',
-          fileName: action.fileName,
+          action: 'rename_item',
+          itemName: action.itemName,
           success: false,
           error: error.message
         })
