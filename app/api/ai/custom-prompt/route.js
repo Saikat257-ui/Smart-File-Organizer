@@ -19,32 +19,43 @@ async function callGeminiAPI(prompt, fileAnalysis) {
       body: JSON.stringify({
         contents: [{
           parts: [{
-            text: `You are an AI assistant specialized in file organization. 
+            text: `You are an AI assistant specialized in file and folder organization. 
             
 User Request: "${prompt}"
 
-Files to Analyze:
+Items to Analyze (Files and Folders):
 ${JSON.stringify(fileAnalysis.map(f => ({
               name: f.name,
               type: f.mimeType,
+              isFolder: f.mimeType === 'application/vnd.google-apps.folder',
               contentSnippet: f.content ? f.content.substring(0, 500) : "No text content"
             })), null, 2)}
 
-Goal: Analyze the files and user request. Return a JSON response with actions to organize the files.
+Goal: Analyze the items and user request. Return a JSON response with actions to organize the items.
 
 Output Format (JSON Property "actions"):
 An array of action objects. 
 Supported actions:
 - { type: "create_folder", name: "FolderName", reasoning: "..." }
-- { type: "move_file", fileId: "...", fileName: "...", targetFolder: "FolderName", reasoning: "..." }
-- { type: "rename_file", fileId: "...", fileName: "...", newName: "NewName", reasoning: "..." }
+- { type: "move_item", itemId: "...", itemName: "...", targetFolder: "FolderName", reasoning: "..." }
+- { type: "rename_item", itemId: "...", itemName: "...", newName: "NewName", reasoning: "..." }
 
 Rules:
-1. If the user asks to "move to a suitable folder" or "organize", analyze the file content/metadata to Create INTELLIGENTLY NAMED folders (e.g., "Financial Reports", "Images 2024", "Project Alpha Docs"). DO NOT use generic names like "folder", "other", "files", or "misc".
+1. If the user asks to "move to a suitable folder" or "organize", analyze the content/metadata to Create INTELLIGENTLY NAMED folders.
 2. If the user specifies a name (e.g., "Rename to X", "Move to folder Y"), follow it EXACTLY (preserve case).
 3. If renaming, preserve correct file extensions.
-4. If the user prompt is vague (e.g. "Move selected file"), infer the best folder name based on the file's content or name.
-5. Combine actions: If moving files, you usually need to create the folder first (unless you know it exists, but safe to emit create_folder).
+4. If the user prompt is vague (e.g. "Move selected item"), infer the best folder name.
+5. "move_item" works for BOTH files and folders.
+
+IMPORTANT: You must return BOTH "create_folder" and "move_item" if the folder doesn't exist or if the user asks to move to a new folder.
+
+Example 1 (Move to new folder):
+User Request: "Move the selected file to a folder called 'Urgent'"
+Response Actions:
+[
+  { "type": "create_folder", "name": "Urgent", "reasoning": "Creating target folder" },
+  { "type": "move_item", "itemId": "<ID>", "itemName": "<Name>", "targetFolder": "Urgent", "reasoning": "Moving item to new folder" }
+]
 
 Response Format:
 {
@@ -178,16 +189,26 @@ export async function POST(request) {
     // But usually asking AI to return IDs is reliable enough, or we can look up by name if failed.
     // For now, trust the AI returned the right IDs as they were provided in input.
 
-    // Add fileId to action if missing or incorrect. We trust the fileName from the AI more than the ID it hallucinates.
+    // Add itemId to action if missing or incorrect. We trust the itemName from the AI more than the ID it hallucinates.
     aiResponse.actions = aiResponse.actions.map(action => {
-      if (action.type === 'move_file' || action.type === 'rename_file') {
+      if (action.type === 'move_item' || action.type === 'rename_item') {
         // AI often hallucinates IDs or puts filenames as IDs. 
-        // We strictly look up the real ID using the fileName provided by the AI.
-        const matchingFile = fileAnalysis.find(f => f.name === action.fileName)
+        // We strictly look up the real ID using the itemName provided by the AI.
+        const matchingFile = fileAnalysis.find(f => f.name === action.itemName)
         if (matchingFile) {
-          console.log(`[ID Map] Correcting ID for ${action.fileName}: ${action.fileId} -> ${matchingFile.id}`)
-          action.fileId = matchingFile.id
+          console.log(`[ID Map] Correcting ID for ${action.itemName}: ${action.itemId} -> ${matchingFile.id}`)
+          action.itemId = matchingFile.id
         }
+      } else if (action.type === 'move_file') {
+        // Backward compatibility for AI just in case it outputs old type
+        action.type = 'move_item'
+        action.itemId = action.fileId
+        action.itemName = action.fileName
+      } else if (action.type === 'rename_file') {
+        // Backward compatibility
+        action.type = 'rename_item'
+        action.itemId = action.fileId
+        action.itemName = action.fileName
       }
       return action
     })
@@ -240,9 +261,9 @@ async function generateAIResponse(prompt, fileAnalysis) {
       }
 
       actions.push({
-        type: 'rename_file',
-        fileId: file.id,
-        fileName: file.name,
+        type: 'rename_item',
+        itemId: file.id,
+        itemName: file.name,
         newName: newName,
         reasoning: `Renaming to "${newName}" as explicitly requested`
       })
@@ -276,6 +297,41 @@ async function generateAIResponse(prompt, fileAnalysis) {
 
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0])
+
+      // SELF-HEALING LOGIC: Fix missing move actions
+      // If user asked to 'move' and we have a 'create_folder' but no 'move_item', injection the move.
+      console.log('[AI Fix Debug] Prompt:', prompt);
+      console.log('[AI Fix Debug] Parsed actions:', JSON.stringify(parsed.actions, null, 2));
+
+      const isMoveRequest = prompt.match(/\bmove\b/i) || prompt.match(/\bput\b/i) || prompt.match(/\borganize\b/i);
+      const hasCreateAction = parsed.actions.some(a => a.type === 'create_folder');
+      const hasMoveAction = parsed.actions.some(a => a.type === 'move_item' || a.type === 'move_file');
+
+      console.log('[AI Fix Debug] isMoveRequest:', isMoveRequest);
+      console.log('[AI Fix Debug] hasCreateAction:', hasCreateAction);
+      console.log('[AI Fix Debug] hasMoveAction:', hasMoveAction);
+
+      if (isMoveRequest && hasCreateAction && !hasMoveAction) {
+        const targetFolderAction = parsed.actions.find(a => a.type === 'create_folder');
+        if (targetFolderAction) {
+          console.log("[AI Fix] Detected missing move action. Auto-generating...");
+          console.log('[AI Fix] Target folder:', targetFolderAction.name);
+          console.log('[AI Fix] Files to move:', fileAnalysis.map(f => f.name));
+
+          fileAnalysis.forEach(file => {
+            parsed.actions.push({
+              type: 'move_item',
+              itemId: file.id,
+              itemName: file.name,
+              targetFolder: targetFolderAction.name,
+              reasoning: "Auto-corrected: Adding missing move action for user request"
+            });
+          });
+          parsed.summary += ` (and moving items to '${targetFolderAction.name}')`;
+          console.log('[AI Fix] Updated actions:', JSON.stringify(parsed.actions, null, 2));
+        }
+      }
+
       return parsed
     } else {
       console.warn("AI response not JSON:", geminiResponseText)
