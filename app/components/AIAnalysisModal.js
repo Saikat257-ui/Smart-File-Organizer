@@ -38,8 +38,8 @@ export default function AIAnalysisModal({ analysisData, onExecuteActions, loadin
   }
 
   const folderActions = actions.filter(action => action.type === 'create_folder')
-  const moveActions = actions.filter(action => action.type === 'move_file')
-  const renameActions = actions.filter(action => action.type === 'rename_file')
+  const moveActions = actions.filter(action => action.type === 'move_file' || action.type === 'move_item')
+  const renameActions = actions.filter(action => action.type === 'rename_file' || action.type === 'rename_item')
 
   return (
     <AnimatePresence>
@@ -187,22 +187,22 @@ export default function AIAnalysisModal({ analysisData, onExecuteActions, loadin
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: 0.3 + index * 0.05 }}
                           className={`p-4 rounded-lg border cursor-pointer transition-all ${selectedActions.has(actionIndex)
-                              ? 'bg-purple-500/20 border-purple-400/50 shadow-lg'
-                              : 'bg-white/5 border-white/10 hover:bg-white/10'
+                            ? 'bg-purple-500/20 border-purple-400/50 shadow-lg'
+                            : 'bg-white/5 border-white/10 hover:bg-white/10'
                             }`}
                           onClick={() => toggleAction(actionIndex)}
                         >
                           <div className="flex items-center space-x-3">
                             <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${selectedActions.has(actionIndex)
-                                ? 'bg-purple-500 border-purple-500 scale-110'
-                                : 'border-gray-400'
+                              ? 'bg-purple-500 border-purple-500 scale-110'
+                              : 'border-gray-400'
                               }`}>
                               {selectedActions.has(actionIndex) && <FaCheck className="text-xs text-white" />}
                             </div>
                             <FaFile className="text-purple-400 text-lg" />
                             <div className="flex-1">
                               <div className="text-sm font-medium text-white">
-                                Rename "{action.fileName}" → {action.newName}
+                                Rename "{action.itemName || action.fileName}" → {action.newName}
                               </div>
                               {action.reasoning && (
                                 <div className="text-xs text-gray-300 mt-1">{action.reasoning}</div>
@@ -272,7 +272,7 @@ export default function AIAnalysisModal({ analysisData, onExecuteActions, loadin
                             <FaFile className="text-gray-400 text-lg" />
                             <div className="flex-1">
                               <div className="text-sm font-medium text-white">
-                                Move "{action.fileName}" → {action.targetFolder}
+                                Move "{action.itemName || action.fileName}" → {action.targetFolder}
                               </div>
                               {action.reasoning && (
                                 <div className="text-xs text-gray-300 mt-1">{action.reasoning}</div>
