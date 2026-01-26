@@ -112,8 +112,8 @@ export default function PrivacyPolicy() {
             <ul className="list-disc list-inside space-y-2 text-gray-600 ml-4">
               <li>Authentication tokens and user session data are deleted immediately when you sign out or revoke access.</li>
               <li>Any cached or temporary data (such as file analysis results) is deleted automatically after your session ends or after a short period of inactivity.</li>
-              <li>You may request deletion of all your data at any time by contacting us at <a href="mailto:spacenos.hq@gmail.com
-" className="text-blue-600 hover:underline">spacenos.hq@gmail.com
+              <li>You may request deletion of all your data at any time by contacting us at <a href="mailto:saikatp571@gmail.com
+" className="text-blue-600 hover:underline">saikatp571@gmail.com
 </a>. We will promptly delete all associated data from our systems.</li>
             </ul>
             <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mt-4 rounded-r-lg">
