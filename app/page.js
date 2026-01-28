@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import { FaGoogle, FaRocket, FaBrain, FaFolderOpen } from 'react-icons/fa'
 import { useState } from 'react'
 import Dashboard from './components/Dashboard'
+import MobileFeatureCarousel from './components/MobileFeatureCarousel'
 
 export default function Home() {
   const { data: session, status } = useSession()
@@ -60,13 +61,13 @@ export default function Home() {
           </p>
         </motion.div>
 
-        {/* Feature Cards */}
-        <div className="grid md:grid-cols-3 gap-6 mb-12 max-w-5xl mx-auto">
+        {/* Feature Cards - Desktop Grid */}
+        <div className="hidden md:grid md:grid-cols-3 gap-6 mb-12 max-w-5xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
-            className="bg-white rounded-2xl p-8 text-center shadow-lg"
+            className="bg-white rounded-2xl p-8 text-center shadow-[0_4px_20px_rgba(0,0,0,0.06)]"
           >
             <div className="w-14 h-14 bg-blue-500 rounded-xl flex items-center justify-center mx-auto mb-4">
               <FaBrain className="text-2xl text-white" />
@@ -81,7 +82,7 @@ export default function Home() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.4 }}
-            className="bg-white rounded-2xl p-8 text-center shadow-lg"
+            className="bg-white rounded-2xl p-8 text-center shadow-[0_4px_20px_rgba(0,0,0,0.06)]"
           >
             <div className="w-14 h-14 bg-purple-500 rounded-xl flex items-center justify-center mx-auto mb-4">
               <FaFolderOpen className="text-2xl text-white" />
@@ -96,7 +97,7 @@ export default function Home() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.5 }}
-            className="bg-white rounded-2xl p-8 text-center shadow-lg"
+            className="bg-white rounded-2xl p-8 text-center shadow-[0_4px_20px_rgba(0,0,0,0.06)]"
           >
             <div className="w-14 h-14 bg-pink-500 rounded-xl flex items-center justify-center mx-auto mb-4">
               <FaRocket className="text-2xl text-white" />
@@ -106,6 +107,11 @@ export default function Home() {
               Track organization progress live as it happens
             </p>
           </motion.div>
+        </div>
+
+        {/* Feature Carousel - Mobile Only */}
+        <div className="md:hidden mb-12">
+          <MobileFeatureCarousel />
         </div>
 
         {/* Sign In Button */}
