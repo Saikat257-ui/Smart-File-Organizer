@@ -27,7 +27,7 @@ A Next.js full-stack web application that connects to Google Drive, intelligentl
 - **Google Drive API** for file operations
 - **NextAuth.js** for authentication
 - **Socket.IO** for real-time communication
-- **OpenRouter API** for Qwen AI integration
+- **Google Gemini API** for Gemini AI integration
 
 ### File Processing
 - **mammoth** for DOCX text extraction
@@ -49,7 +49,7 @@ GOOGLE_CLIENT_ID=your-google-client-id-here
 GOOGLE_CLIENT_SECRET=your-google-client-secret-here
 
 # OpenRouter API Configuration
-OPENROUTER_API_KEY=your-openrouter-api-key-here
+GEMINI_API_KEY=your-openrouter-api-key-here
 
 # Socket.IO Configuration
 SOCKET_PORT=3001
@@ -163,7 +163,7 @@ NEXTAUTH_URL=https://your-app-name.vercel.app
 NEXTAUTH_SECRET=your-nextauth-secret-here
 GOOGLE_CLIENT_ID=your-google-client-id-here
 GOOGLE_CLIENT_SECRET=your-google-client-secret-here
-OPENROUTER_API_KEY=your-openrouter-api-key-here
+GEMINI_API_KEY=your-openrouter-api-key-here
 ```
 
 #### 2. Google OAuth Configuration
